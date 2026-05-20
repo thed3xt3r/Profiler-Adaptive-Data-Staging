@@ -1,0 +1,43 @@
+# Singularity/Apptainer images
+*.sif
+*.simg
+
+# Python / Environment
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.pylibs/
+.pydeps/
+
+# Data and Checkpoints
+bing_1k/
+checkpoints/
+checkpoints_*/
+*.ckpt
+*.pt
+*.pth
+
+# Logs and Outputs
+logs/
+*.log
+wandb/
+profiler_logs/
+profiler_results/
+profiler_best/
+profiler/
+best_trial_profiling/
+best_trial_profile/
+
+# OS / Editor
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Slurm
+*.out
+*.err
