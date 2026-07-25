@@ -166,7 +166,9 @@ def _build_pruning_callback(trial):
 
 def run_training(config, train_loader, val_loader, val_dataset, trial=None):
     model = ArcheoModel(
+        config["arch"],
         encoder_name=config["encoder"],
+        encoder_weights=config["weights"],
         in_channels=config["in_channels"],
         out_classes=1,
         config=config,
@@ -211,7 +213,7 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
         log_every_n_steps=1,
         enable_progress_bar=True,
         callbacks=callbacks,
-        deterministic="warn",
+        deterministic=True,
     )
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
@@ -225,6 +227,7 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
             if best_ckpt:
                 profiled_model = ArcheoModel.load_from_checkpoint(
                     best_ckpt,
+                    arch=config["arch"],
                     encoder_name=config["encoder"],
                     in_channels=config["in_channels"],
                     out_classes=1,
@@ -270,7 +273,9 @@ def main():
         "dataset_path": os.path.join(PATH_DATASETS, "bing_1k"),
         "checkpoint_path": PATH_LOG,
         "random_seed": 1234,
-        "encoder": "b0",
+        "arch": "Segformer",
+        "encoder": "mit_b0",
+        "weights": "imagenet",
         "loss": "focal",
         "learning_rate": 0.0001,
         "precision": 32,

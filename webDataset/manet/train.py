@@ -1,64 +1,77 @@
 import argparse
 import os
 import random
+import numpy as np
 import optuna
+import torch
+import pytorch_lightning as pl
+from pytorch_lightning import loggers as pl_loggers
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from torch.utils.data import DataLoader
+from torch.profiler import profile, record_function, ProfilerActivity
 from datetime import datetime
+import webdataset as wds
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")  # non-interactive backend, safe for HPC
 import matplotlib.pyplot as plt
-import numpy as np
-import lightning.pytorch as pl
-import torch
-from lightning.pytorch import loggers as pl_loggers
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from torch.profiler import ProfilerActivity, profile, record_function
-from torch.utils.data import DataLoader
 
-from dataset import ArcheoDataset, get_transforms, load_dataset
+from dataset import get_webdataset, get_transforms
 from model import ArcheoModel
 
+# ---------------------------------------------------------------------------
+# GPU compatibility workaround
+# ---------------------------------------------------------------------------
+torch.set_float32_matmul_precision('medium')
 
-torch.set_float32_matmul_precision("medium")
-
-
+# Monkey-patch Lightning's device capability check to bypass driver error
 try:
-    import lightning.fabric.accelerators.cuda
-
+    import lightning_fabric.accelerators.cuda
     def _dummy_is_ampere_or_later(device):
+        """Bypass device capability check for driver compatibility."""
         return False
-
-    lightning.fabric.accelerators.cuda._is_ampere_or_later = _dummy_is_ampere_or_later
+    lightning_fabric.accelerators.cuda._is_ampere_or_later = _dummy_is_ampere_or_later
 except (ImportError, AttributeError):
     pass
 
 
+# ---------------------------------------------------------------------------
+# Training Plot Callback
+# ---------------------------------------------------------------------------
+
 class TrainingPlotCallback(pl.Callback):
-    def __init__(self, save_path="training_curves.png"):
+    """
+    Collects loss and IoU each epoch and saves a PNG at the end of training.
+    Output: <ckpt_dir>/training_curves.png
+    """
+
+    def __init__(self, save_path: str = "training_curves.png"):
         self.save_path = save_path
         self.train_loss, self.val_loss = [], []
-        self.train_iou, self.val_iou = [], []
+        self.train_iou,  self.val_iou  = [], []
 
     def on_train_epoch_end(self, trainer, pl_module):
         metrics = trainer.callback_metrics
         self._append(self.train_loss, metrics.get("train/loss_epoch"))
-        self._append(self.train_iou, metrics.get("train/iou"))
+        self._append(self.train_iou,  metrics.get("train/iou"))
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.sanity_checking:
-            return
+            return  # Ignore the sanity check step
         metrics = trainer.callback_metrics
         self._append(self.val_loss, metrics.get("valid/loss"))
-        self._append(self.val_iou, metrics.get("valid/iou"))
+        self._append(self.val_iou,  metrics.get("valid/iou"))
 
     def on_train_end(self, trainer, pl_module):
         if not self.train_loss:
             return
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
         train_epochs = range(1, len(self.train_loss) + 1)
         val_epochs = range(1, len(self.val_loss) + 1)
 
+        # Loss
         ax1.plot(train_epochs, self.train_loss, label="Train Loss")
         if self.val_loss:
             ax1.plot(val_epochs, self.val_loss, label="Val Loss")
@@ -68,6 +81,7 @@ class TrainingPlotCallback(pl.Callback):
         ax1.legend()
         ax1.grid(True)
 
+        # IoU
         if self.train_iou:
             ax2.plot(train_epochs, self.train_iou, label="Train IoU")
         if self.val_iou:
@@ -78,7 +92,7 @@ class TrainingPlotCallback(pl.Callback):
         ax2.legend()
         ax2.grid(True)
 
-        fig.suptitle("Training Curves — SegFormer B0", fontsize=14)
+        fig.suptitle("Training Curves — MA-Net WebDataset", fontsize=14)
         plt.tight_layout()
         plt.savefig(self.save_path, dpi=150)
         plt.close(fig)
@@ -90,11 +104,24 @@ class TrainingPlotCallback(pl.Callback):
             lst.append(float(value))
 
 
+# ---------------------------------------------------------------------------
+# PyTorch Profiler Helper
+# ---------------------------------------------------------------------------
+
 def profile_model(model, dataloader, num_batches=5, device="cuda",
                   profile_dir="profiler_logs", wait=1, warmup=1, active=3):
+    """
+    Profile model inference using PyTorch Profiler.
+    Saves Chrome trace and text report.
+    """
     os.makedirs(profile_dir, exist_ok=True)
     model = model.to(device)
     model.eval()
+
+    print(f"\n{'='*60}")
+    print(f"PROFILING MODEL ON {num_batches} BATCHES")
+    print(f"{'='*60}")
+    print(f"wait={wait}, warmup={warmup}, active={active}")
 
     activities = [ProfilerActivity.CPU]
     if device == "cuda":
@@ -104,28 +131,44 @@ def profile_model(model, dataloader, num_batches=5, device="cuda",
         activities=activities,
         record_shapes=True,
         profile_memory=True,
-        schedule=torch.profiler.schedule(wait=wait, warmup=warmup, active=active, repeat=1),
-        on_trace_ready=lambda p: p.export_chrome_trace(os.path.join(profile_dir, "trace.json")),
+        schedule=torch.profiler.schedule(
+            wait=wait,
+            warmup=warmup,
+            active=active,
+            repeat=1
+        ),
+        on_trace_ready=lambda p: p.export_chrome_trace(
+            os.path.join(profile_dir, "trace.json")
+        )
     ) as prof:
         with torch.no_grad():
             for batch_idx, batch in enumerate(dataloader):
                 if batch_idx >= num_batches:
                     break
 
-                images = batch[0]
-                if not torch.is_tensor(images):
-                    images = torch.tensor(images)
-                images = images.to(device).float()
+                images = batch[0].to(device)
 
                 with record_function("model_forward"):
                     _ = model(images)
 
+                if (batch_idx + 1) % max(1, num_batches // 3) == 0:
+                    print(f"  Profiled {batch_idx + 1}/{num_batches} batches...")
+
                 prof.step()
 
+    # Print profiler summary
+    print("\nProfiler Summary (Top 15 operations by CPU time):")
+    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=15))
+
+    if device == "cuda":
+        print("\nProfiler Summary (Top 15 operations by CUDA time):")
+        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=15))
+
+    # Save detailed report
     report_path = os.path.join(profile_dir, "profiler_report.txt")
     with open(report_path, "w") as f:
         f.write("=" * 80 + "\n")
-        f.write("PROFILER REPORT — SegFormer B0\n")
+        f.write("PROFILER REPORT — MA-Net WebDataset\n")
         f.write("=" * 80 + "\n\n")
         f.write("Top 50 operations by CPU time:\n")
         f.write(prof.key_averages().table(sort_by="cpu_time_total", row_limit=50))
@@ -137,7 +180,12 @@ def profile_model(model, dataloader, num_batches=5, device="cuda",
 
     print(f"\nDetailed report saved to: {report_path}")
     print(f"Chrome trace saved to: {os.path.join(profile_dir, 'trace.json')}")
+    print(f"{'='*60}\n")
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -152,99 +200,106 @@ def parse_args():
     return parser.parse_args()
 
 
-def _build_pruning_callback(trial):
-    if trial is None:
-        return None
-
-    try:
-        from optuna.integration import PyTorchLightningPruningCallback
-        return PyTorchLightningPruningCallback(trial, monitor="valid/iou")
-    except Exception as exc:
-        print(f"[Optuna] Warning: pruning callback unavailable ({exc}); continuing without it.")
-        return None
-
-
-def run_training(config, train_loader, val_loader, val_dataset, trial=None):
+def run_training(config, train_loader, val_loader, val_dataset_func, trial=None):
     model = ArcheoModel(
+        config["arch"],
         encoder_name=config["encoder"],
-        in_channels=config["in_channels"],
+        in_channels=config['in_channels'], 
         out_classes=1,
-        config=config,
+        config=config
     )
 
-    callbacks = []
+    callbacks_list = []
     checkpoint_callback = ModelCheckpoint(
         dirpath=config["checkpoint_path"],
-        filename=f"segformer-b0-trial{trial.number if trial else '0'}-{{epoch:02d}}-{{valid/iou:.4f}}",
+        filename=f"manet-effb3-trial{trial.number if trial else '0'}-{{epoch:02d}}-{{valid/iou:.4f}}",
         monitor="valid/iou",
         mode="max",
         save_top_k=1,
         save_last=True,
         verbose=True,
     )
-    callbacks.append(checkpoint_callback)
-    
+    callbacks_list.append(checkpoint_callback)
+
     early_stopping = EarlyStopping(
         monitor="valid/iou",
         mode="max",
         patience=config["patience"],
         verbose=True,
     )
-    callbacks.append(early_stopping)
-    
+    callbacks_list.append(early_stopping)
+
     if trial is None:
         plot_callback = TrainingPlotCallback(
             save_path=os.path.join(config["checkpoint_path"], "training_curves.png")
         )
-        callbacks.append(plot_callback)
+        callbacks_list.append(plot_callback)
     else:
-        pruning_callback = _build_pruning_callback(trial)
-        if pruning_callback is not None:
-            callbacks.append(pruning_callback)
+        from optuna_integration import PyTorchLightningPruningCallback
+        callbacks_list.append(PyTorchLightningPruningCallback(trial, monitor="valid/iou"))
+
+    # Since WebDataset repeats infinitely during training, we must specify limit_train_batches
+    limit_train_batches = config["train_size"] // config["batch_size"]
+    # Limit val batches to match the exact validation set size (optional, but clean)
+    limit_val_batches = config["val_size"] // config["batch_size"]
 
     trainer = pl.Trainer(
         max_epochs=config["epochs"],
+        limit_train_batches=limit_train_batches,
+        limit_val_batches=limit_val_batches,
         precision=config["precision"],
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
         logger=pl_loggers.TensorBoardLogger(config["checkpoint_path"]),
         log_every_n_steps=1,
         enable_progress_bar=True,
-        callbacks=callbacks,
-        deterministic="warn",
+        callbacks=callbacks_list,
+        deterministic=True,
     )
 
-    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    
+    cfg_text = "\n".join([f"{key}: {config[key]}" for key in config])
+    if trial is None:
+        print("\nTraining Configuration:")
+        print(cfg_text)
+        trainer.logger.experiment.add_text(tag="config", text_string=cfg_text)
+
+    trainer.fit(
+        model,
+        train_dataloaders=train_loader, 
+        val_dataloaders=val_loader
+    )
+
     best_iou = trainer.callback_metrics.get("valid/iou")
     best_iou_val = float(best_iou) if best_iou is not None else 0.0
 
     if config["profile"] and trial is None:
+        print("\n[Profile] Profiling best model checkpoint...")
         try:
             best_ckpt = checkpoint_callback.best_model_path
             if best_ckpt:
                 profiled_model = ArcheoModel.load_from_checkpoint(
                     best_ckpt,
+                    arch=config["arch"],
                     encoder_name=config["encoder"],
                     in_channels=config["in_channels"],
                     out_classes=1,
                     config=config,
                 )
             else:
+                print("[Profile] No best checkpoint found, using current model...")
                 profiled_model = model
 
             profile_dir = os.path.join(config["checkpoint_path"], "profiler_results")
+            
+            # Use a separate dataloader with 0 workers for profiling stability, and do not repeat
+            profile_dataset = val_dataset_func(repeat=False)
             profile_loader = DataLoader(
-                val_dataset,
-                batch_size=config["batch_size"],
-                shuffle=False,
-                drop_last=False,
-                num_workers=0,
+                profile_dataset, batch_size=config["batch_size"],
+                shuffle=False, num_workers=0
             )
 
             profile_model(
-                profiled_model,
-                profile_loader,
+                profiled_model, profile_loader,
                 num_batches=config["profile_wait"] + config["profile_warmup"] + config["profile_active"] + 2,
                 device="cuda" if torch.cuda.is_available() else "cpu",
                 profile_dir=profile_dir,
@@ -254,23 +309,26 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
             )
         except Exception as e:
             print(f"[Profile] Warning: Could not profile model: {e}")
+            import traceback
+            traceback.print_exc()
 
     return best_iou_val, checkpoint_callback.best_model_path
 
 
 def main():
     args = parse_args()
-
+    
     PROJECT_ROOT = os.path.expanduser("~/Thesis")
-    PATH_LOG = os.path.join(PROJECT_ROOT, "checkpoints_segformer")
-    PATH_DATASETS = PROJECT_ROOT
+    PATH_LOG = os.path.join(PROJECT_ROOT, "checkpoints_baseline_wds")
+    SHARDS_ROOT = os.path.join(PROJECT_ROOT, "webDataset/shards")
 
     base_config = {
-        "timestamp": datetime.now().strftime("%d-%m-%Y_%H%M%S"),    
-        "dataset_path": os.path.join(PATH_DATASETS, "bing_1k"),
+        "timestamp": datetime.now().strftime("%d-%m-%Y_%H%M%S"),
+        "shards_root": SHARDS_ROOT,
         "checkpoint_path": PATH_LOG,
         "random_seed": 1234,
-        "encoder": "b0",
+        "arch": "MAnet",
+        "encoder": "efficientnet-b3",
         "loss": "focal",
         "learning_rate": 0.0001,
         "precision": 32,
@@ -278,6 +336,9 @@ def main():
         "batch_size": args.batch_size,
         "in_channels": 3,
         "patience": 15,
+        "train_size": 4712,  # Match exact splits in create_shards.py
+        "val_size": 588,
+        "test_size": 589,
         "profile": args.profile,
         "profile_wait": args.profile_wait,
         "profile_warmup": args.profile_warmup,
@@ -285,7 +346,7 @@ def main():
     }
 
     os.makedirs(base_config["checkpoint_path"], exist_ok=True)
-    os.makedirs(os.path.join(PROJECT_ROOT, "segformer", "logs"), exist_ok=True)
+    os.makedirs(os.path.join(PROJECT_ROOT, "webDataset", "manet", "logs"), exist_ok=True)
 
     random.seed(base_config["random_seed"])
     np.random.seed(base_config["random_seed"])
@@ -293,56 +354,28 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(base_config["random_seed"])
 
-    originals_count = len(sorted(os.listdir(os.path.join(base_config["dataset_path"], "train/originals/sites"))))
-    negs_count = len(sorted(os.listdir(os.path.join(base_config["dataset_path"], "train/negs/sites"))))
-    total_count = originals_count + negs_count
-    indices = np.arange(0, total_count)
-
-    (
-        originals_images_dir,
-        originals_masks_dir,
-        negs_images_dir,
-        negs_masks_dir,
-        train_data,
-        val_data,
-        test_data,
-    ) = load_dataset(base_config["dataset_path"], base_config["random_seed"], indices)
+    # Path matching patterns for WebDataset shards
+    train_shards = os.path.join(SHARDS_ROOT, "train", "shard-{000000..000047}.tar")
+    val_shards = os.path.join(SHARDS_ROOT, "val", "shard-{000000..000005}.tar")
 
     train_transform, val_transform = get_transforms()
 
-    train_dataset = ArcheoDataset(
-        train_data,
-        originals_images_dir,
-        originals_masks_dir,
-        negs_images_dir,
-        negs_masks_dir,
-        transform=train_transform,
-    )
-    val_dataset = ArcheoDataset(
-        val_data,
-        originals_images_dir,
-        originals_masks_dir,
-        negs_images_dir,
-        negs_masks_dir,
-        transform=val_transform,
-    )
+    # Define WebDataset datasets
+    # Note: training dataset uses repeat=True (implied by get_webdataset)
+    train_dataset = get_webdataset(train_shards, train_transform, is_training=True)
+    
+    def val_dataset_func(repeat=False):
+        # Allow creating val dataset without repeating for profiling/testing if needed
+        dataset = get_webdataset(val_shards, val_transform, is_training=False)
+        return dataset
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=base_config["batch_size"],
-        shuffle=True,
-        drop_last=True,
-        num_workers=4,
-        pin_memory=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=base_config["batch_size"],
-        shuffle=False,
-        drop_last=False,
-        num_workers=4,
-        pin_memory=True,
-    )
+    val_dataset = val_dataset_func(repeat=False)
+
+    # Dataloaders - WebDataset recommends batching via DataLoader or wds pipelines
+    train_loader = DataLoader(train_dataset, batch_size=base_config["batch_size"], 
+                              num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=base_config["batch_size"], 
+                            num_workers=4, pin_memory=True)
 
     if args.tune:
         def objective(trial):
@@ -351,10 +384,10 @@ def main():
             config["checkpoint_path"] = os.path.join(PATH_LOG, f"trial_{trial.number}")
             os.makedirs(config["checkpoint_path"], exist_ok=True)
             
-            iou, _ = run_training(config, train_loader, val_loader, val_dataset, trial=trial)
+            iou, _ = run_training(config, train_loader, val_loader, val_dataset_func, trial=trial)
             return iou
 
-        study = optuna.create_study(direction="maximize", study_name="segformer_tuning")
+        study = optuna.create_study(direction="maximize", study_name="manet_wds_tuning")
         study.optimize(objective, n_trials=args.tune_trials)
 
         print("\n" + "="*60)
@@ -373,11 +406,11 @@ def main():
             best_config.update(study.best_params)
             best_config["checkpoint_path"] = os.path.join(PATH_LOG, "best_trial_profiling")
             os.makedirs(best_config["checkpoint_path"], exist_ok=True)
-            run_training(best_config, train_loader, val_loader, val_dataset, trial=None)
+            run_training(best_config, train_loader, val_loader, val_dataset_func, trial=None)
 
     else:
         print("Running standard training...")
-        run_training(base_config, train_loader, val_loader, val_dataset, trial=None)
+        run_training(base_config, train_loader, val_loader, val_dataset_func, trial=None)
 
 
 if __name__ == "__main__":

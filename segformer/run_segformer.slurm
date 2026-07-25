@@ -16,11 +16,11 @@ SIF="${PROJECT_ROOT}/tell_seg.sif"
 # ============================================================
 # CONFIGURATION: Select which mode to run
 # ============================================================
-# Set MODE to one of: standard, profile
-#   standard      - Train SegFormer model (SegFormer B0)
-#   profile       - Train + profile with PyTorch profiler
+# Set MODE to one of: standard, tune_and_profile
+#   standard         - Train SegFormer model (SegFormer B0)
+#   tune_and_profile - Tune with Optuna + Profile the best model
 
-MODE="profile"  # Change this to switch modes
+MODE="tune_and_profile"  # Change this to switch modes
 
 # ============================================================
 # END CONFIGURATION
@@ -70,26 +70,27 @@ if [ "${MODE}" == "standard" ]; then
     echo "Running STANDARD segformer training..."
     apptainer exec --nv \
         --bind "${HOME}/Thesis:/workspace" \
-        "${HOME}/Thesis/tell_seg.sif" \
+        --env PYTHONPATH="/opt/conda/lib/python3.10/site-packages:/workspace/.pylibs" \
+        "${SIF}" \
         python -u /workspace/segformer/train.py \
         2>&1 | tee "${PROJECT_ROOT}/segformer/logs/segformer_train_$(date +%Y%m%d_%H%M%S).log"
 
 # ============================================================
-# MODE 2: TRAINING WITH PROFILING
-# Train + PyTorch profiler for performance analysis
+# MODE 2: TUNING AND PROFILING
+# Optuna Tuning + PyTorch profiler for performance analysis
 # ============================================================
-elif [ "${MODE}" == "profile" ]; then
-    echo "Running segformer training WITH PROFILING..."
+elif [ "${MODE}" == "tune_and_profile" ]; then
+    echo "Running segformer OPTUNA TUNING and PROFILING..."
     apptainer exec --nv \
         --bind "${HOME}/Thesis:/workspace" \
-        --env SEGFORMER_PROFILE=1 \
-        "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/segformer/train.py \
+        --env PYTHONPATH="/opt/conda/lib/python3.10/site-packages:/workspace/.pylibs" \
+        "${SIF}" \
+        python -u /workspace/segformer/train.py --tune --tune_trials 10 --profile \
         2>&1 | tee "${PROJECT_ROOT}/segformer/logs/segformer_profile_$(date +%Y%m%d_%H%M%S).log"
 
 else
     echo "ERROR: Unknown mode '${MODE}'"
-    echo "Valid modes: standard, profile"
+    echo "Valid modes: standard, tune_and_profile"
     exit 1
 fi
 

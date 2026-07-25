@@ -1,12 +1,14 @@
 import argparse
+import json
 import os
 import random
+import time
 import numpy as np
 import optuna
 import torch
-import pytorch_lightning as pl
-from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+import lightning.pytorch as pl
+from lightning.pytorch import loggers as pl_loggers
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import DataLoader
 from torch.profiler import profile, record_function, ProfilerActivity
 from datetime import datetime
@@ -15,7 +17,7 @@ import matplotlib
 matplotlib.use("Agg")  # non-interactive backend, safe for HPC
 import matplotlib.pyplot as plt
 
-from dataset import load_dataset, get_transforms, ArcheoDataset
+from dataset import load_dataset, get_transforms, ArcheoDataset, TarArcheoDataset, StagingArcheoDataset
 from model import ArcheoModel
 
 # ---------------------------------------------------------------------------
@@ -25,11 +27,11 @@ torch.set_float32_matmul_precision('medium')
 
 # Monkey-patch Lightning's device capability check to bypass driver error
 try:
-    import lightning_fabric.accelerators.cuda
+    import lightning.fabric.accelerators.cuda
     def _dummy_is_ampere_or_later(device):
         """Bypass device capability check for driver compatibility."""
         return False
-    lightning_fabric.accelerators.cuda._is_ampere_or_later = _dummy_is_ampere_or_later
+    lightning.fabric.accelerators.cuda._is_ampere_or_later = _dummy_is_ampere_or_later
 except (ImportError, AttributeError):
     pass  # Not needed if lightning_fabric is not installed or API changed
 
@@ -104,8 +106,168 @@ class TrainingPlotCallback(pl.Callback):
 
 
 # ---------------------------------------------------------------------------
-# PyTorch Profiler Helper
+# PADS profiler helpers
 # ---------------------------------------------------------------------------
+
+def classify_bottleneck(metrics, scratch_available=False):
+    """Classify the dominant bottleneck from profiled timings."""
+    t_data = float(metrics.get("t_data", 0.0))
+    t_decode = float(metrics.get("t_decode", 0.0))
+    t_h2d = float(metrics.get("t_h2d", 0.0))
+    t_gpu = float(metrics.get("t_gpu", 0.0))
+
+    if scratch_available and t_h2d > max(t_decode, t_gpu, 0.05) * 1.25:
+        return "stage"
+    if t_decode > max(t_h2d, t_gpu) * 1.5:
+        return "shard"
+    if t_data > max(t_decode, t_gpu) * 1.5:
+        return "shard"
+    return "loose"
+
+
+def select_policy(metrics, scratch_available=False):
+    """Select a PADS policy from collected profiler metrics."""
+    if scratch_available and float(metrics.get("t_h2d", 0.0)) > 0.08:
+        return "stage"
+    return classify_bottleneck(metrics, scratch_available=scratch_available)
+
+
+def build_dataloader(dataset, batch_size, shuffle, drop_last, policy="loose", num_workers=4):
+    """Create a DataLoader with policy-based worker settings."""
+    if policy == "stage":
+        workers = min(max(num_workers, 4), 8)
+        prefetch_factor = 2
+    elif policy == "shard":
+        workers = min(max(num_workers, 2), 8)
+        prefetch_factor = 2
+    else:
+        workers = max(1, num_workers - 1)
+        prefetch_factor = 1
+
+    loader_kwargs = {
+        "batch_size": batch_size,
+        "shuffle": shuffle,
+        "drop_last": drop_last,
+        "pin_memory": torch.cuda.is_available(),
+        "num_workers": workers,
+    }
+    if workers > 0:
+        loader_kwargs["persistent_workers"] = True
+        loader_kwargs["prefetch_factor"] = prefetch_factor
+
+    return DataLoader(dataset, **loader_kwargs)
+
+
+def create_dataset(data_items, originals_images_dir, originals_masks_dir,
+                   negs_images_dir, negs_masks_dir, transform, policy="loose",
+                   originals_tar_path=None, negs_tar_path=None, scratch_dir=None):
+    """Factory function to create the appropriate dataset based on policy."""
+    if policy == "shard":
+        if originals_tar_path and negs_tar_path:
+            return TarArcheoDataset(data_items, originals_tar_path, negs_tar_path, transform=transform)
+        else:
+            print(f"[Warning] shard policy requested but tar files not found, falling back to loose")
+            return ArcheoDataset(data_items, originals_images_dir, originals_masks_dir,
+                                negs_images_dir, negs_masks_dir, transform=transform)
+    
+    elif policy == "stage":
+        return StagingArcheoDataset(data_items, originals_images_dir, originals_masks_dir,
+                                   negs_images_dir, negs_masks_dir, transform=transform,
+                                   scratch_dir=scratch_dir)
+    
+    else:  # loose
+        return ArcheoDataset(data_items, originals_images_dir, originals_masks_dir,
+                            negs_images_dir, negs_masks_dir, transform=transform)
+
+
+def profile_data_pipeline(model, dataset, batch_size=32, device="cuda",
+                          num_batches=12, scratch_available=True,
+                          profile_dir="profiler_logs", num_workers=0):
+    """Profile batch acquisition, decode and H2D timings and select a PADS policy."""
+    os.makedirs(profile_dir, exist_ok=True)
+    dataset.reset_profile_stats()
+    dataset.profile_enabled = True
+
+    model = model.to(device)
+    model.eval()
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        drop_last=False,
+        num_workers=num_workers,
+        pin_memory=(device == "cuda"),
+    )
+
+    iterator = iter(dataloader)
+    metrics = {"t_data": 0.0, "t_decode": 0.0, "t_h2d": 0.0, "t_gpu": 0.0}
+    batches_seen = 0
+
+    for _ in range(num_batches):
+        try:
+            batch_start = time.perf_counter()
+            batch = next(iterator)
+            t_data = time.perf_counter() - batch_start
+        except StopIteration:
+            break
+
+        sample_count = batch[0].shape[0] if isinstance(batch[0], torch.Tensor) else len(batch[0])
+        decode_values = dataset.profile_stats[-sample_count:] if dataset.profile_stats else []
+        t_decode = float(np.mean(decode_values)) if decode_values else 0.0
+        dataset.reset_profile_stats()
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        h2d_start = time.perf_counter()
+        images = batch[0].to(device, non_blocking=True)
+        t_h2d = time.perf_counter() - h2d_start
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        gpu_start = time.perf_counter()
+        with torch.no_grad():
+            _ = model(images)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        t_gpu = time.perf_counter() - gpu_start
+
+        metrics["t_data"] += t_data
+        metrics["t_decode"] += t_decode
+        metrics["t_h2d"] += t_h2d
+        metrics["t_gpu"] += t_gpu
+        batches_seen += 1
+
+    if batches_seen == 0:
+        metrics = {"t_data": 0.0, "t_decode": 0.0, "t_h2d": 0.0, "t_gpu": 0.0}
+        policy = "loose"
+    else:
+        for key in metrics:
+            metrics[key] /= batches_seen
+        policy = select_policy(metrics, scratch_available=scratch_available)
+
+    dataset.profile_enabled = False
+
+    summary = {
+        "policy": policy,
+        "scratch_available": scratch_available,
+        "metrics": metrics,
+        "batches_profiled": batches_seen,
+    }
+    summary_path = os.path.join(profile_dir, "data_policy_summary.json")
+    with open(summary_path, "w") as handle:
+        json.dump(summary, handle, indent=2)
+
+    print("\n[PADS Profiler] Warm-up summary")
+    print(f"  Policy: {policy}")
+    print(f"  t_data: {metrics['t_data']:.4f}s")
+    print(f"  t_decode: {metrics['t_decode']:.4f}s")
+    print(f"  t_h2d: {metrics['t_h2d']:.4f}s")
+    print(f"  t_gpu: {metrics['t_gpu']:.4f}s")
+    print(f"  Summary saved to: {summary_path}")
+
+    return summary
+
 
 def profile_model(model, dataloader, num_batches=5, device="cuda",
                   profile_dir="profiler_logs", wait=1, warmup=1, active=3):
@@ -201,6 +363,8 @@ def parse_args():
     parser.add_argument("--tune", action="store_true", help="Run Optuna hyperparameter tuning")
     parser.add_argument("--tune_trials", type=int, default=10, help="Number of Optuna trials")
     parser.add_argument("--profile", action="store_true", help="Profile the best model")
+    parser.add_argument("--profile_policy", action="store_true", help="Profile the data pipeline and choose a PADS policy")
+    parser.add_argument("--profile_batches", type=int, default=8, help="Number of batches to use for PADS policy profiling")
     parser.add_argument("--profile_wait", type=int, default=1)
     parser.add_argument("--profile_warmup", type=int, default=1)
     parser.add_argument("--profile_active", type=int, default=5)
@@ -296,7 +460,7 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
             
             profile_loader = DataLoader(
                 val_dataset, batch_size=config["batch_size"],
-                shuffle=False, drop_last=False, num_workers=0
+                shuffle=False, drop_last=False, num_workers=4, pin_memory=True
             )
 
             profile_model(
@@ -339,6 +503,8 @@ def main():
         "in_channels": 3,
         "patience": 15,
         "profile": args.profile,
+        "profile_policy": args.profile_policy,
+        "profile_batches": args.profile_batches,
         "profile_wait": args.profile_wait,
         "profile_warmup": args.profile_warmup,
         "profile_active": args.profile_active,
@@ -370,17 +536,66 @@ def main():
 
     train_transform, val_transform = get_transforms()
 
-    train_dataset = ArcheoDataset(train_data, originals_images_dir, originals_masks_dir, 
-                                   negs_images_dir, negs_masks_dir, transform=train_transform)
-    val_dataset = ArcheoDataset(val_data, originals_images_dir, originals_masks_dir, 
-                                negs_images_dir, negs_masks_dir, transform=val_transform)
-    test_dataset = ArcheoDataset(test_data, originals_images_dir, originals_masks_dir,
-                                 negs_images_dir, negs_masks_dir, transform=val_transform)
+    # Create datasets based on the determined policy
+    train_dataset = create_dataset(
+        train_data, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, transform=train_transform,
+        policy=base_config.get("data_policy", "loose"),
+        scratch_dir=os.path.join(PROJECT_ROOT, "scratch")
+    )
+    val_dataset = create_dataset(
+        val_data, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, transform=val_transform,
+        policy=base_config.get("data_policy", "loose"),
+        scratch_dir=os.path.join(PROJECT_ROOT, "scratch")
+    )
+    test_dataset = create_dataset(
+        test_data, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, transform=val_transform,
+        policy=base_config.get("data_policy", "loose"),
+        scratch_dir=os.path.join(PROJECT_ROOT, "scratch")
+    )
 
-    train_loader = DataLoader(train_dataset, batch_size=base_config["batch_size"], 
-                              shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=base_config["batch_size"], 
-                            shuffle=False, drop_last=False, num_workers=4, pin_memory=True)
+    if base_config.get("profile_policy"):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print("\n[PADS] Profiling the data pipeline to choose a policy...")
+        probe_model = ArcheoModel(
+            base_config["arch"],
+            encoder_name=base_config["encoder"],
+            encoder_weights=base_config["weights"],
+            in_channels=base_config["in_channels"],
+            out_classes=1,
+            config=base_config,
+        )
+        policy_summary = profile_data_pipeline(
+            probe_model,
+            train_dataset,
+            batch_size=base_config["batch_size"],
+            device=device,
+            num_batches=base_config["profile_batches"],
+            scratch_available=True,
+            profile_dir=os.path.join(PROJECT_ROOT, "deeplab", "logs"),
+        )
+        base_config["data_policy"] = policy_summary["policy"]
+    else:
+        base_config["data_policy"] = "loose"
+
+    train_loader = build_dataloader(
+        train_dataset,
+        batch_size=base_config["batch_size"],
+        shuffle=True,
+        drop_last=True,
+        policy=base_config["data_policy"],
+        num_workers=4,
+    )
+    val_loader = build_dataloader(
+        val_dataset,
+        batch_size=base_config["batch_size"],
+        shuffle=False,
+        drop_last=False,
+        policy=base_config["data_policy"],
+        num_workers=4,
+    )
 
     if args.tune:
         def objective(trial):

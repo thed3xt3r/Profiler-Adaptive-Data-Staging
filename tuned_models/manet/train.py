@@ -1,8 +1,6 @@
-import argparse
 import os
 import random
 import numpy as np
-import optuna
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
@@ -91,7 +89,7 @@ class TrainingPlotCallback(pl.Callback):
         ax2.legend()
         ax2.grid(True)
 
-        fig.suptitle("Training Curves — DeepLabV3Plus ResNet-50", fontsize=14)
+        fig.suptitle("Training Curves — Baseline MA-Net EfficientNet-B3", fontsize=14)
         plt.tight_layout()
         plt.savefig(self.save_path, dpi=150)
         plt.close(fig)
@@ -177,7 +175,7 @@ def profile_model(model, dataloader, num_batches=5, device="cuda",
     report_path = os.path.join(profile_dir, "profiler_report.txt")
     with open(report_path, "w") as f:
         f.write("=" * 80 + "\n")
-        f.write("PROFILER REPORT — DeepLabV3Plus ResNet-50\n")
+        f.write("PROFILER REPORT — Baseline MA-Net EfficientNet-B3\n")
         f.write("=" * 80 + "\n\n")
         f.write("Top 50 operations by CPU time:\n")
         f.write(prof.key_averages().table(sort_by="cpu_time_total", row_limit=50))
@@ -196,20 +194,83 @@ def profile_model(model, dataloader, num_batches=5, device="cuda",
 # Main
 # ---------------------------------------------------------------------------
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--tune", action="store_true", help="Run Optuna hyperparameter tuning")
-    parser.add_argument("--tune_trials", type=int, default=10, help="Number of Optuna trials")
-    parser.add_argument("--profile", action="store_true", help="Profile the best model")
-    parser.add_argument("--profile_wait", type=int, default=1)
-    parser.add_argument("--profile_warmup", type=int, default=1)
-    parser.add_argument("--profile_active", type=int, default=5)
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=32)
-    return parser.parse_args()
+def main():
+    """Main training script for archaeological site segmentation on bing_1k"""
+    
+    # Configuration for bing_1k segmentation
+    PROJECT_ROOT = os.path.expanduser("~/Thesis")
+    PATH_LOG = os.path.join(PROJECT_ROOT, "checkpoints_baseline")
+    PATH_DATASETS = PROJECT_ROOT
 
+    config = {
+        "timestamp": datetime.now().strftime("%d-%m-%Y_%H%M%S"),
+        "dataset_path": os.path.join(PATH_DATASETS, "bing_1k"),
+        "checkpoint_path": PATH_LOG,
+        "random_seed": 1234,
+        "arch": "MAnet",
+        "encoder": "efficientnet-b3",
+        "weights": "imagenet",
+        "loss": "focal",
+        "learning_rate": 0.0001,
+        "precision": 32,
+        "epochs": 100,
+        "batch_size": 32,
+        "in_channels": 3,
+        "patience": 15,
+        # Profiling config
+        "profile": os.environ.get("BASELINE_PROFILE", "0") == "1",
+        "profile_wait": 1,
+        "profile_warmup": 1,
+        "profile_active": 5,
+    }
 
-def run_training(config, train_loader, val_loader, val_dataset, trial=None):
+    # Create directories
+    os.makedirs(config["checkpoint_path"], exist_ok=True)
+    os.makedirs(os.path.join(PROJECT_ROOT, "baseline", "logs"), exist_ok=True)
+
+    # Set random seeds
+    random.seed(config["random_seed"])
+    np.random.seed(config["random_seed"])
+    torch.manual_seed(config["random_seed"])
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(config["random_seed"])
+
+    # Count total images for index creation
+    originals_count = len(sorted(os.listdir(
+        os.path.join(config["dataset_path"], "train/originals/sites"))))
+    negs_count = len(sorted(os.listdir(
+        os.path.join(config["dataset_path"], "train/negs/sites"))))
+    total_count = originals_count + negs_count
+
+    # Create indices — load_dataset() will shuffle them with the seed
+    indices = np.arange(0, total_count)
+
+    # Load dataset (combines originals and negs)
+    (originals_images_dir, originals_masks_dir, negs_images_dir, negs_masks_dir, 
+     train_data, val_data, test_data) = load_dataset(
+        config["dataset_path"], 
+        config["random_seed"],
+        indices
+    )
+
+    # Create transforms
+    train_transform, val_transform = get_transforms()
+
+    # Create datasets
+    train_dataset = ArcheoDataset(train_data, originals_images_dir, originals_masks_dir, 
+                                   negs_images_dir, negs_masks_dir, transform=train_transform)
+    val_dataset = ArcheoDataset(val_data, originals_images_dir, originals_masks_dir, 
+                                negs_images_dir, negs_masks_dir, transform=val_transform)
+    test_dataset = ArcheoDataset(test_data, originals_images_dir, originals_masks_dir,
+                                 negs_images_dir, negs_masks_dir, transform=val_transform)
+
+    # Create dataloaders
+    train_loader = DataLoader(train_dataset, batch_size=config["batch_size"], 
+                              shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=config["batch_size"], 
+                            shuffle=False, drop_last=False, num_workers=4, pin_memory=True)
+
+    # Create model
     model = ArcheoModel(
         config["arch"],
         encoder_name=config["encoder"],
@@ -219,17 +280,18 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
         config=config
     )
 
-    callbacks_list = []
+    # ------------------------------------------------------------------
+    # Callbacks
+    # ------------------------------------------------------------------
     checkpoint_callback = ModelCheckpoint(
         dirpath=config["checkpoint_path"],
-        filename=f"deeplab-resnet50-trial{trial.number if trial else '0'}-{{epoch:02d}}-{{valid/iou:.4f}}",
+        filename="baseline-manet-effb3-{epoch:02d}-{valid/iou:.4f}",
         monitor="valid/iou",
         mode="max",
-        save_top_k=1,
+        save_top_k=3,
         save_last=True,
         verbose=True,
     )
-    callbacks_list.append(checkpoint_callback)
 
     early_stopping = EarlyStopping(
         monitor="valid/iou",
@@ -237,17 +299,16 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
         patience=config["patience"],
         verbose=True,
     )
-    callbacks_list.append(early_stopping)
 
-    if trial is None:
-        plot_callback = TrainingPlotCallback(
-            save_path=os.path.join(config["checkpoint_path"], "training_curves.png")
-        )
-        callbacks_list.append(plot_callback)
-    else:
-        from optuna.integration import PyTorchLightningPruningCallback
-        callbacks_list.append(PyTorchLightningPruningCallback(trial, monitor="valid/iou"))
+    plot_callback = TrainingPlotCallback(
+        save_path=os.path.join(config["checkpoint_path"], "training_curves.png")
+    )
 
+    callbacks_list = [checkpoint_callback, early_stopping, plot_callback]
+
+    # ------------------------------------------------------------------
+    # Trainer
+    # ------------------------------------------------------------------
     trainer = pl.Trainer(
         max_epochs=config["epochs"],
         precision=config["precision"],
@@ -260,22 +321,27 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
         deterministic=True,
     )
 
+    # Log configuration
     cfg_text = "\n".join([f"{key}: {config[key]}" for key in config])
-    if trial is None:
-        print("\nTraining Configuration:")
-        print(cfg_text)
-        trainer.logger.experiment.add_text(tag="config", text_string=cfg_text)
+    print("\nTraining Configuration:")
+    print(cfg_text)
+    trainer.logger.experiment.add_text(tag="config", text_string=cfg_text)
 
+    # ------------------------------------------------------------------
+    # Train model
+    # ------------------------------------------------------------------
+    print("\nStarting training...")
     trainer.fit(
         model,
         train_dataloaders=train_loader, 
         val_dataloaders=val_loader
     )
+    print("Training completed!")
 
-    best_iou = trainer.callback_metrics.get("valid/iou")
-    best_iou_val = float(best_iou) if best_iou is not None else 0.0
-
-    if config["profile"] and trial is None:
+    # ------------------------------------------------------------------
+    # PyTorch Profiling (optional, enabled via BASELINE_PROFILE=1)
+    # ------------------------------------------------------------------
+    if config["profile"]:
         print("\n[Profile] Profiling best model checkpoint...")
         try:
             best_ckpt = checkpoint_callback.best_model_path
@@ -294,9 +360,10 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
 
             profile_dir = os.path.join(config["checkpoint_path"], "profiler_results")
             
+            # Use a separate dataloader with 0 workers for profiling stability
             profile_loader = DataLoader(
                 val_dataset, batch_size=config["batch_size"],
-                shuffle=False, drop_last=False, num_workers=0
+                shuffle=False, drop_last=False, num_workers=4, pin_memory=True
             )
 
             profile_model(
@@ -313,109 +380,7 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
             import traceback
             traceback.print_exc()
 
-    return best_iou_val, checkpoint_callback.best_model_path
-
-
-def main():
-    args = parse_args()
-    
-    PROJECT_ROOT = os.path.expanduser("~/Thesis")
-    PATH_LOG = os.path.join(PROJECT_ROOT, "checkpoints_deeplab")
-    PATH_DATASETS = PROJECT_ROOT
-
-    base_config = {
-        "timestamp": datetime.now().strftime("%d-%m-%Y_%H%M%S"),
-        "dataset_path": os.path.join(PATH_DATASETS, "bing_1k"),
-        "checkpoint_path": PATH_LOG,
-        "random_seed": 1234,
-        "arch": "DeepLabV3Plus",
-        "encoder": "resnet50",
-        "weights": "imagenet",
-        "loss": "focal",
-        "learning_rate": 0.0001,
-        "precision": 32,
-        "epochs": args.epochs,
-        "batch_size": args.batch_size,
-        "in_channels": 3,
-        "patience": 15,
-        "profile": args.profile,
-        "profile_wait": args.profile_wait,
-        "profile_warmup": args.profile_warmup,
-        "profile_active": args.profile_active,
-    }
-
-    os.makedirs(base_config["checkpoint_path"], exist_ok=True)
-    os.makedirs(os.path.join(PROJECT_ROOT, "deeplab", "logs"), exist_ok=True)
-
-    random.seed(base_config["random_seed"])
-    np.random.seed(base_config["random_seed"])
-    torch.manual_seed(base_config["random_seed"])
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(base_config["random_seed"])
-
-    originals_count = len(sorted(os.listdir(
-        os.path.join(base_config["dataset_path"], "train/originals/sites"))))
-    negs_count = len(sorted(os.listdir(
-        os.path.join(base_config["dataset_path"], "train/negs/sites"))))
-    total_count = originals_count + negs_count
-
-    indices = np.arange(0, total_count)
-
-    (originals_images_dir, originals_masks_dir, negs_images_dir, negs_masks_dir, 
-     train_data, val_data, test_data) = load_dataset(
-        base_config["dataset_path"], 
-        base_config["random_seed"],
-        indices
-    )
-
-    train_transform, val_transform = get_transforms()
-
-    train_dataset = ArcheoDataset(train_data, originals_images_dir, originals_masks_dir, 
-                                   negs_images_dir, negs_masks_dir, transform=train_transform)
-    val_dataset = ArcheoDataset(val_data, originals_images_dir, originals_masks_dir, 
-                                negs_images_dir, negs_masks_dir, transform=val_transform)
-    test_dataset = ArcheoDataset(test_data, originals_images_dir, originals_masks_dir,
-                                 negs_images_dir, negs_masks_dir, transform=val_transform)
-
-    train_loader = DataLoader(train_dataset, batch_size=base_config["batch_size"], 
-                              shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=base_config["batch_size"], 
-                            shuffle=False, drop_last=False, num_workers=4, pin_memory=True)
-
-    if args.tune:
-        def objective(trial):
-            config = base_config.copy()
-            config["learning_rate"] = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
-            config["checkpoint_path"] = os.path.join(PATH_LOG, f"trial_{trial.number}")
-            os.makedirs(config["checkpoint_path"], exist_ok=True)
-            
-            iou, _ = run_training(config, train_loader, val_loader, val_dataset, trial=trial)
-            return iou
-
-        study = optuna.create_study(direction="maximize", study_name="deeplab_tuning")
-        study.optimize(objective, n_trials=args.tune_trials)
-
-        print("\n" + "="*60)
-        print("OPTUNA TUNING RESULTS")
-        print("="*60)
-        print(f"Best Trial ID: {study.best_trial.number}")
-        print(f"Best Validation IoU: {study.best_value:.4f}")
-        print(f"Best Hyperparameters:")
-        for key, value in study.best_params.items():
-            print(f"  {key}: {value}")
-        print("="*60)
-
-        if args.profile:
-            print("\nRunning profiling with best hyperparameters...")
-            best_config = base_config.copy()
-            best_config.update(study.best_params)
-            best_config["checkpoint_path"] = os.path.join(PATH_LOG, "best_trial_profiling")
-            os.makedirs(best_config["checkpoint_path"], exist_ok=True)
-            run_training(best_config, train_loader, val_loader, val_dataset, trial=None)
-
-    else:
-        print("Running standard training...")
-        run_training(base_config, train_loader, val_loader, val_dataset, trial=None)
+    print("\nAll done!")
 
 
 if __name__ == "__main__":

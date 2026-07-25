@@ -1,101 +1,67 @@
 import torch
-import torch.nn.functional as F
-import lightning.pytorch as pl
-from torchmetrics import Accuracy, JaccardIndex
-from transformers import SegformerForSemanticSegmentation
+import pytorch_lightning as pl
+import segmentation_models_pytorch as smp
+from torchmetrics import Accuracy, Precision, Recall, JaccardIndex
 
 
 class ArcheoModel(pl.LightningModule):
-    """Lightning module for archaeological site segmentation using NVlabs' SegFormer
-    via HuggingFace Transformers.
-
-    The model loads a pretrained SegFormer variant (e.g. b0–b5) from the
-    'nvidia/segformer-{variant}-finetuned-ade-512-512' checkpoint and replaces
-    the classification head for binary segmentation (num_labels=out_classes).
-
-    NOTE: The SegFormer decode head outputs logits at 1/4 of the input spatial
-    resolution.  We upsample them back to the original size with bilinear
-    interpolation so that the loss and metrics are computed at full resolution.
-    """
-
-    # Map short names used in config["encoder"] to the HuggingFace checkpoint
-    # suffix.  Accepted values: "b0" .. "b5" or the legacy "mit_b0" .. "mit_b5".
-    _VARIANT_MAP = {
-        "mit_b0": "b0", "mit_b1": "b1", "mit_b2": "b2",
-        "mit_b3": "b3", "mit_b4": "b4", "mit_b5": "b5",
-        "b0": "b0", "b1": "b1", "b2": "b2",
-        "b3": "b3", "b4": "b4", "b5": "b5",
-    }
-
-    def __init__(self, encoder_name, in_channels, out_classes, config):
+    """Lightning module for archaeological site segmentation (deeplab)"""
+    
+    def __init__(self, arch, encoder_name, in_channels, out_classes, config, **kwargs):
         super().__init__()
-        self.save_hyperparameters()
         self.config = config
-
-        variant = self._VARIANT_MAP.get(encoder_name, "b0")
-        pretrained_name = f"nvidia/segformer-{variant}-finetuned-ade-512-512"
-
-        self.model = SegformerForSemanticSegmentation.from_pretrained(
-            pretrained_name,
-            num_labels=out_classes,
-            ignore_mismatched_sizes=True,
+        self.model = smp.create_model(
+            arch, encoder_name=encoder_name, in_channels=in_channels, 
+            classes=out_classes, **kwargs
         )
+        params = smp.encoders.get_preprocessing_params(encoder_name)
+        self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
+        self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
+        
+        if config["loss"] == "jaccard":
+            self.loss_fn = smp.losses.JaccardLoss(smp.losses.BINARY_MODE, from_logits=True)
+        elif config["loss"] == "dice":
+            self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        elif config["loss"] == "focal":
+            self.loss_fn = smp.losses.FocalLoss(mode=smp.losses.BINARY_MODE)
 
-        # ImageNet normalisation buffers (SegFormer expects normalised input)
-        self.register_buffer(
-            "mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
-        )
-        self.register_buffer(
-            "std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
-        )
-
-        # --- Loss function ---
-        from torch.nn import BCEWithLogitsLoss
-        self.loss_fn = BCEWithLogitsLoss()
-
-        # --- Metrics ---
+        # Metrics — binary, threshold 0.5
         metric_kwargs = dict(task="binary", threshold=0.5)
         self.train_iou = JaccardIndex(**metric_kwargs)
         self.train_acc = Accuracy(**metric_kwargs)
+
         self.val_iou = JaccardIndex(**metric_kwargs)
         self.val_acc = Accuracy(**metric_kwargs)
+
         self.test_iou = JaccardIndex(**metric_kwargs)
         self.test_acc = Accuracy(**metric_kwargs)
 
     def forward(self, image):
         image = (image - self.mean) / self.std
-        outputs = self.model(pixel_values=image)
-        logits = outputs.logits  # shape: (B, out_classes, H/4, W/4)
-
-        # Upsample logits to the original input resolution
-        logits = F.interpolate(
-            logits,
-            size=image.shape[2:],  # (H, W)
-            mode="bilinear",
-            align_corners=False,
-        )
-        return logits
+        mask = self.model(image)
+        return mask
 
     def shared_step(self, batch, stage):
         image = batch[0]
-        if not torch.is_tensor(image):
-            image = torch.tensor(image)
-        image = image.float()
-
+        assert image.ndim == 4
+        h, w = image.shape[2:]
+        assert h % 32 == 0 and w % 32 == 0
+        
         mask = batch[1]
-        if not torch.is_tensor(mask):
-            mask = torch.tensor(mask)
-        mask = mask.float()
-
+        assert mask.ndim == 4
+        assert mask.max() <= 1.0 and mask.min() >= 0
+        
         logits_mask = self.forward(image)
         loss = self.loss_fn(logits_mask, mask)
-
+        
+        # Predictions: sigmoid + threshold
         prob_mask = logits_mask.sigmoid()
         pred_mask = (prob_mask > 0.5).long()
-
+        
+        # Squeeze channel dim for metrics: (B, 1, H, W) -> (B, H, W)
         pred_flat = pred_mask.squeeze(1)
         mask_flat = mask.squeeze(1).long()
-
+        
         if stage == "train":
             self.train_iou(pred_flat, mask_flat)
             self.train_acc(pred_flat, mask_flat)
@@ -127,13 +93,13 @@ class ArcheoModel(pl.LightningModule):
         return {"loss": loss}
 
     def training_step(self, batch, batch_idx):
-        return self.shared_step(batch, "train")
+        return self.shared_step(batch, "train")            
 
     def validation_step(self, batch, batch_idx):
         return self.shared_step(batch, "valid")
 
     def test_step(self, batch, batch_idx):
-        return self.shared_step(batch, "test")
+        return self.shared_step(batch, "test")  
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.config["learning_rate"])
+        return torch.optim.Adam(self.parameters(), lr=self.config["learning_rate"])
