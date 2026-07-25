@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=deeplab_hyp_and_profile
+#SBATCH --job-name=deeplab_PADS
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
@@ -7,6 +7,7 @@
 #SBATCH --output=deeplab/logs/%x_%j.out
 #SBATCH --error=deeplab/logs/%x_%j.err
 #SBATCH --export=NONE
+#SBATCH --qos=besteffort
 
 set -euo pipefail
 
@@ -62,6 +63,22 @@ cd "${PROJECT_ROOT}"
 
 export PYTHONUNBUFFERED=1
 
+# ------------------------------------------------------------
+# Guard against NumPy ABI drift in .pylibs
+# ------------------------------------------------------------
+# ~/Thesis/.pylibs is prepended to PYTHONPATH ahead of the container's own
+# site-packages. If something was ever installed there with an unconstrained
+# `numpy` dependency (e.g. a newer optuna), it silently upgrades numpy for
+# every job that binds this directory, breaking anything in the container
+# compiled against NumPy 1.x's C-API (scikit-learn, wandb, etc.) with errors
+# like "numpy.dtype size changed" or "np.float_ was removed in NumPy 2.0".
+# Re-pin it before every run so this can't happen again on any node.
+echo "Ensuring compatible NumPy (<2) in .pylibs..."
+apptainer exec \
+    --bind "${HOME}/Thesis:/workspace" \
+    "${SIF}" \
+    pip install --target /workspace/.pylibs "numpy<2" --upgrade --quiet
+
 # ============================================================
 # MODE 1: STANDARD TRAINING
 # Train deeplab model without profiling
@@ -72,7 +89,7 @@ if [ "${MODE}" == "standard" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env PYTHONPATH="/workspace/.pylibs" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/deeplab/train.py \
+        python -u /workspace/PADS/deeplab/train.py \
         2>&1 | tee "${PROJECT_ROOT}/deeplab/logs/deeplab_train_$(date +%Y%m%d_%H%M%S).log"
 
 # ============================================================
@@ -85,7 +102,7 @@ elif [ "${MODE}" == "tune_and_profile" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env PYTHONPATH="/workspace/.pylibs" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/deeplab/train.py --tune --tune_trials 10 --profile \
+        python -u /workspace/PADS/deeplab/train.py --tune --tune_trials 10 --profile --profile_policy \
         2>&1 | tee "${PROJECT_ROOT}/deeplab/logs/deeplab_profile_$(date +%Y%m%d_%H%M%S).log"
 
 else

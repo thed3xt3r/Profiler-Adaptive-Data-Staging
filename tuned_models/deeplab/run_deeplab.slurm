@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=deeplab_hyp_and_profile
+#SBATCH --job-name=deeplab_tuned
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
@@ -7,6 +7,7 @@
 #SBATCH --output=deeplab/logs/%x_%j.out
 #SBATCH --error=deeplab/logs/%x_%j.err
 #SBATCH --export=NONE
+#SBATCH --qos=besteffort
 
 set -euo pipefail
 
@@ -72,7 +73,7 @@ if [ "${MODE}" == "standard" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env PYTHONPATH="/workspace/.pylibs" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/deeplab/train.py \
+        python -u /workspace/tuned_models/deeplab/train.py \
         2>&1 | tee "${PROJECT_ROOT}/deeplab/logs/deeplab_train_$(date +%Y%m%d_%H%M%S).log"
 
 # ============================================================
@@ -85,7 +86,7 @@ elif [ "${MODE}" == "tune_and_profile" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env PYTHONPATH="/workspace/.pylibs" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/deeplab/train.py --tune --tune_trials 10 --profile \
+        python -u /workspace/tuned_models/deeplab/train.py --tune --tune_trials 10 --profile \
         2>&1 | tee "${PROJECT_ROOT}/deeplab/logs/deeplab_profile_$(date +%Y%m%d_%H%M%S).log"
 
 else

@@ -3,7 +3,7 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
 
 %labels
     Author Nabeel
-    Description PyTorch CUDA 11.7 environment for segmentation experiments
+    Description SegFormer-compatible PyTorch CUDA 11.7 environment for segmentation experiments
 
 %environment
     export PYTHONUNBUFFERED=1
@@ -25,9 +25,6 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
     python -m pip install --upgrade "pip<24" "setuptools<81" wheel
 
     python -m pip install \
-        --extra-index-url https://download.pytorch.org/whl/cu117 \
-        torch==2.0.1 \
-        torchvision==0.15.2 \
         "numpy<2" \
         lightning==2.0.9 \
         segmentation-models-pytorch==0.3.3 \
@@ -43,7 +40,7 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
         optuna==3.6.2 \
         transformers==4.39.2 \
         timm==0.9.2 \
-        tokenizers \
+        tokenizers==0.19.3 \
         huggingface-hub==0.23.0 \
         safetensors>=0.3.0 \
         opencv-python-headless
@@ -64,7 +61,6 @@ import tokenizers
 print("numpy:", numpy.__version__)
 print("torch:", torch.__version__)
 print("torchvision:", torchvision.__version__)
-print("cuda available at runtime depends on --nv")
 print("lightning:", pl.__version__)
 print("smp:", segmentation_models_pytorch.__version__)
 print("albumentations:", albumentations.__version__)

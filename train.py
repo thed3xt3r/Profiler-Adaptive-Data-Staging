@@ -513,7 +513,7 @@ def main():
                     dm_for_profiling = TellSiteDataModule(
                         data_root=args.data_root,
                         batch_size=args.batch_size,
-                        num_workers=0,  # Profiling works better with 0 workers
+                        num_workers=0,  
                         seed=args.seed,
                     )
                     dm_for_profiling.setup()
