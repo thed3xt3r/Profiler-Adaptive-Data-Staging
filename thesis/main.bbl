@@ -1,0 +1,143 @@
+\begin{thebibliography}{10}
+
+\bibitem{Aizman19}
+A.~Aizman, G.~Maltby, and T.~Breuel.
+\newblock High performance {I/O} for large scale deep learning.
+\newblock In {\em Proc. IEEE Intl. Conf. on Big Data}, 2019.
+
+\bibitem{Buslaev20}
+A.~Buslaev, V.~I. Iglovikov, E.~Khvedchenya, A.~Parinov, M.~Druzhinin, and
+  A.~A. Kalinin.
+\newblock Albumentations: Fast and flexible image augmentations.
+\newblock {\em Information}, 11(2):125, 2020.
+
+\bibitem{Casini23}
+L.~Casini, N.~Marchetti, A.~Montanucci, V.~Orr\`u, and M.~Roccetti.
+\newblock A human--{AI} collaboration workflow for archaeological sites
+  detection.
+\newblock {\em Scientific Reports}, 13:8699, 2023.
+
+\bibitem{Chen18}
+L.-C. Chen, Y.~Zhu, G.~Papandreou, F.~Schroff, and H.~Adam.
+\newblock Encoder-decoder with atrous separable convolution for semantic image
+  segmentation.
+\newblock In {\em Proc. European Conf. on Computer Vision (ECCV)}, 2018.
+
+\bibitem{Deng09}
+J.~Deng, W.~Dong, R.~Socher, L.-J. Li, K.~Li, and L.~Fei-Fei.
+\newblock {ImageNet}: A large-scale hierarchical image database.
+\newblock In {\em Proc. IEEE Conf. on Computer Vision and Pattern Recognition
+  (CVPR)}, pages 248--255, 2009.
+
+\bibitem{Fan20}
+T.~Fan, G.~Wang, Y.~Li, and H.~Wang.
+\newblock {MA-Net}: A multi-scale attention network for liver and tumor
+  segmentation.
+\newblock {\em IEEE Access}, 8:179656--179665, 2020.
+
+\bibitem{Fiorucci22}
+M.~Fiorucci, W.~B.~V. van~der Vaart, P.~Soleni, B.~L. Saux, and A.~Traviglia.
+\newblock Deep learning for archaeological object detection on {LiDAR}: New
+  evaluation measures and insights.
+\newblock {\em Remote Sensing}, 14(7):1694, 2022.
+
+\bibitem{Guyot21}
+A.~Guyot, M.~Lennon, T.~Lorho, and L.~Hubert-Moy.
+\newblock Combined detection and segmentation of archeological structures from
+  {LiDAR} data using a deep learning approach.
+\newblock {\em J. Computer Applications in Archaeology}, 4(1), 2021.
+
+\bibitem{Iakubovskii19}
+P.~Iakubovskii.
+\newblock Segmentation models {PyTorch}, 2019.
+\newblock GitHub repository.
+
+\bibitem{Ioffe15}
+S.~Ioffe and C.~Szegedy.
+\newblock Batch normalization: Accelerating deep network training by reducing
+  internal covariate shift.
+\newblock In {\em Proc. Intl. Conf. on Machine Learning (ICML)}, 2015.
+
+\bibitem{Lin17}
+T.-Y. Lin, P.~Goyal, R.~Girshick, K.~He, and P.~Doll\'ar.
+\newblock Focal loss for dense object detection.
+\newblock In {\em Proc. IEEE Intl. Conf. on Computer Vision (ICCV)}, 2017.
+
+\bibitem{Mohan21}
+J.~Mohan, A.~Phanishayee, A.~Raniwala, and V.~Chidambaram.
+\newblock Analyzing and mitigating data stalls in {DNN} training.
+\newblock {\em Proc. VLDB Endowment}, 14(5):771--784, 2021.
+
+\bibitem{Murray21}
+D.~G. Murray, J.~Simsa, A.~Klimovic, and I.~Indyk.
+\newblock {tf.data}: A machine learning data processing framework.
+\newblock {\em Proc. VLDB Endowment}, 14(12):2945--2958, 2021.
+
+\bibitem{DALI}
+{NVIDIA Corporation}.
+\newblock {NVIDIA DALI}: Data loading library.
+\newblock Software library.
+
+\bibitem{Orengo20}
+H.~A. Orengo, F.~C. Conesa, A.~Garcia-Molsosa, et~al.
+\newblock Automated detection of archaeological mounds using machine-learning
+  classification of multisensor and multitemporal satellite data.
+\newblock {\em Proc. National Academy of Sciences}, 117:18240--18250, 2020.
+
+\bibitem{Paszke19}
+A.~Paszke, S.~Gross, F.~Massa, et~al.
+\newblock {PyTorch}: An imperative style, high-performance deep learning
+  library.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS)},
+  2019.
+
+\bibitem{Ronneberger15}
+O.~Ronneberger, P.~Fischer, and T.~Brox.
+\newblock {U-Net}: Convolutional networks for biomedical image segmentation.
+\newblock In {\em Proc. Intl. Conf. on Medical Image Computing and
+  Computer-Assisted Intervention (MICCAI)}, pages 234--241, 2015.
+
+\bibitem{Tan19}
+M.~Tan and Q.~V. Le.
+\newblock {EfficientNet}: Rethinking model scaling for convolutional neural
+  networks.
+\newblock In {\em Proc. Intl. Conf. on Machine Learning (ICML)}, 2019.
+
+\bibitem{Trier19}
+{\O}.~D. Trier, D.~C. Cowley, and A.~U. Waldeland.
+\newblock Using deep neural networks on airborne laser scanning data: Results
+  from a case study of semi-automatic mapping of archaeological topography on
+  {Arran}, {Scotland}.
+\newblock {\em Archaeological Prospection}, 26:165--175, 2019.
+
+\bibitem{Verschoof22}
+W.~B.~V. van~der Vaart and K.~Lambers.
+\newblock Applying automated object detection in archaeological practice: A
+  case study from the southern {Netherlands}.
+\newblock {\em Archaeological Prospection}, 29:15--31, 2022.
+
+\bibitem{Vaswani17}
+A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N. Gomez,
+  {\L}.~Kaiser, and I.~Polosukhin.
+\newblock Attention is all you need.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS)},
+  2017.
+
+\bibitem{Wilkinson03}
+T.~J. Wilkinson.
+\newblock {\em Archaeological Landscapes of the Near East}.
+\newblock University of Arizona Press, 2003.
+
+\bibitem{Wu18}
+Y.~Wu and K.~He.
+\newblock Group normalization.
+\newblock In {\em Proc. European Conf. on Computer Vision (ECCV)}, 2018.
+
+\bibitem{Xie21}
+E.~Xie, W.~Wang, Z.~Yu, A.~Anandkumar, J.~M. Alvarez, and P.~Luo.
+\newblock {SegFormer}: Simple and efficient design for semantic segmentation
+  with transformers.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS)},
+  2021.
+
+\end{thebibliography}

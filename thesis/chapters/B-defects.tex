@@ -1,0 +1,133 @@
+%% ============================================================================
+\chapter{Pipeline Defects Identified During Reproduction}
+\label{app:defects}
+\addcontentsline{lot}{chapter}{Pipeline Defects Identified During Reproduction}
+%% ============================================================================
+
+Porting the training code to a second environment surfaced a number of defects in
+the experimental pipeline.
+They are documented here because several are silent --- they degrade results or
+invalidate measurements without raising an error --- and because two of them
+invalidate earlier data-staging measurements and therefore bear directly on the
+claims this thesis is able to make.
+
+\section{Defects affecting the staging mechanism}
+
+\subsection{Policy selected after the datasets it selects were constructed}
+\label{sec:defect-ordering}
+
+The staging policy was applied only to \code{DataLoader} construction, not to
+dataset construction.
+In the original control flow, the three datasets were built before the profiler ran:
+
+\begin{lstlisting}[language=Python]
+policy = base_config.get("data_policy", "loose")   # key absent -> "loose"
+train_dataset = create_dataset(..., policy=policy) # always the loose reader
+...
+base_config["data_policy"] = policy_summary["policy"]  # profiler decides, too late
+train_loader = build_dataloader(train_dataset, policy=base_config["data_policy"])
+\end{lstlisting}
+
+The datasets were never rebuilt after the profiler had spoken, and the selected
+policy reached only \code{build\_dataloader}, whose entire use of it is to choose
+\code{num\_workers} and \code{prefetch\_factor}.
+The shard and stage reader classes were therefore unreachable code, and every run
+--- irrespective of the policy the profiler reported --- read loose files.
+
+The consequence is that any previously reported staging result describes a policy
+\emph{decision} rather than a policy \emph{execution}.
+The fix reorders policy selection ahead of dataset construction, with the profiler
+probing an explicitly-loose dataset and the working datasets built from its verdict.
+
+\subsection{No archive the shard reader could open}
+
+The shard reader addresses members by original filename within archives named
+\code{originals.tar} and \code{negs.tar}.
+The repository's shard generator produces WebDataset-format shards
+(\code{shard-000000.tar}, members keyed \code{train\_000123.jpg}), which that reader
+can neither open nor address; and no archives of either form existed on disk.
+The shard branch would therefore have fallen through to its loose fallback even had
+it been reachable.
+
+Archives in the required layout are now produced by a dedicated builder, which
+verifies its output by comparing decoded samples against the loose path.
+They are written uncompressed for the reason given in
+Section~\ref{ch:methodology}: the payload is already-compressed JPEG and PNG, so
+compression yields negligible size reduction while forcing decompression from the
+stream start on every random access.
+
+\subsection{Staging silently degraded to a plain read}
+
+The staging dataset copies samples to a scratch directory but swallows
+\code{IOError} and \code{OSError} during the copy.
+The scratch directory was never created, so every copy failed silently and the
+policy read directly from the source path --- appearing selected and active while
+having no effect.
+
+\section{Defects affecting segmentation accuracy}
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{p{4.2cm}p{9.2cm}}
+\toprule
+Defect & Description and evidence \\
+\midrule
+Focal loss $\alpha$ unset in one variant
+  & \code{smp.losses.FocalLoss} defaults to \code{alpha=None}, applying no
+    class weighting on a target with a median 7\% positive-pixel rate. \\
+Validation on a random crop
+  & Scoring a different random patch of each tile every epoch injects variance into
+    checkpoint selection and early stopping. Note that the reference
+    \emph{deliberately} random-crops at test time and averages ten passes; the
+    defect is using it as an unaveraged per-epoch selection signal. \\
+Configured loss silently ignored
+  & One model hardcoded \code{BCEWithLogitsLoss} while both the configuration and
+    the training log reported \code{focal}. Correcting it moved epoch-1 IoU from
+    0.299 to 0.362 and reversed a declining validation trend. Unknown loss names
+    now raise rather than falling through. \\
+fp16 divergence on EfficientNet
+  & Under \code{16-mixed}, training loss became non-finite at epoch 4 and all
+    metrics collapsed to zero, while early stopping continued for its full
+    15-epoch patience on a dead model; the run reported a ``best'' score that was
+    merely the last value before the blowup. ResNet-50 was unaffected across 20
+    epochs. Isolating the loss under \code{autocast} showed gradients bit-identical
+    to fp32, locating the overflow in the encoder --- consistent with
+    EfficientNet's SiLU and squeeze-excite blocks exceeding fp16's exponent range.
+    Resolved by \code{bf16-mixed}; a guard now aborts at the epoch a loss becomes
+    non-finite. \\
+\bottomrule
+\end{tabular}
+\caption{Accuracy-affecting defects.}
+\label{tab:accuracy-defects}
+\end{table}
+
+\section{Defects affecting reproducibility and operations}
+
+\begin{itemize}
+  \item \textbf{Metric-name path separator.} Checkpoint filenames interpolate the
+    monitored metric name \code{valid/iou} verbatim. On filesystems treating
+    \code{/} as a path separator this creates a directory rather than a filename,
+    and \code{save\_top\_k} then prunes the checkpoint while leaving an orphaned
+    directory per improved epoch.
+  \item \textbf{Profiler perturbs the training RNG.} The warm-up pass iterates the
+    \emph{training} dataset, whose transforms are stochastic, advancing the global
+    random state before training begins. A profiled run is therefore not
+    seed-comparable with an unprofiled one at identical configuration. Any
+    comparison between them must either restore RNG state after profiling or treat
+    the difference as within run-to-run variance, which was measured at
+    approximately $\pm 0.02$ IoU.
+  \item \textbf{Study persistence.} Hyperparameter studies were not persisted, so an
+    interrupted sweep restarted from trial zero and reused checkpoint directories.
+\end{itemize}
+
+\section{Implication for prior results}
+
+Sections~\ref{sec:defect-ordering} and the missing archives are the consequential
+ones.
+Because the selected policy never reached the data path, and because the shard
+policy had no readable data in any case, staging results collected before these
+fixes report decisions rather than executions.
+They are not recoverable by reanalysis and the corresponding experiments require
+repetition.
+The defects are properties of the code rather than of any particular machine, and
+therefore applied equally to cluster runs.

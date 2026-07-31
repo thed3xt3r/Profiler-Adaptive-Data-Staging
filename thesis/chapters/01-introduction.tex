@@ -1,0 +1,132 @@
+%% ============================================================================
+\chapter{Introduction}
+\addcontentsline{lof}{chapter}{Introduction}
+%% ============================================================================
+
+\section{Background and Motivation}
+
+Remote sensing has become a central instrument of archaeological prospection.
+Where a field survey of a large region once required years of systematic ground
+inspection, openly available satellite imagery now permits candidate sites to be
+identified from a desk, and the resulting shortlist to direct where limited
+excavation effort is spent~\cite{Casini23,Orengo20}.
+The southern Mesopotamian floodplain is a canonical setting for this: it contains
+thousands of mounded settlement sites, locally called \emph{tells}, formed by the
+accumulated building levels and occupation debris of communities that remained in
+one place over long periods~\cite{Wilkinson03}.
+Their colour and shape make them visible from above, and that visibility is what
+makes automated detection plausible at all.
+
+Semantic segmentation --- assigning a class label to every pixel --- is well matched
+to this task, because archaeologists need the outline of a site rather than merely
+its presence.
+Casini et al.~\cite{Casini23} fine-tuned pretrained segmentation networks on a corpus
+of roughly five thousand ground-truthed sites and reported intersection-over-union
+(IoU) in the range of 74--83\%, with site-level detection accuracy near 80\% once a
+domain expert had adjudicated the predictions.
+That work also established the framing that this thesis inherits: the model is a
+component in a human--AI workflow, not a replacement for the archaeologist.
+
+The present work takes that workload as given and asks a different question.
+Training such models on a shared HPC cluster is conventionally treated as a problem
+of accelerator throughput: the model is profiled, the batch size is tuned, mixed
+precision is enabled, and the data path is assumed to keep up.
+For this workload that assumption does not hold.
+The corpus consists of thousands of individually stored image and mask files on a
+shared parallel filesystem, and each training step issues an independent
+\code{open}/\code{stat}/\code{read}/\code{close} sequence per sample against a
+filesystem optimised for large sequential transfers rather than for many-small-file
+metadata operations.
+The accelerator waits.
+
+\section{The problem}
+
+Three properties of this setting, taken together, define the problem addressed here.
+
+\paragraph{The bottleneck is real and it is not the model.}
+Profiling the baseline pipeline across three architectures shows a ratio of
+data-path time to compute time large enough that the loader is a plausible
+constraint rather than a rounding error, and the effect is most pronounced for
+the architecture with the lowest per-step compute --- precisely the configuration
+in which a fast model exposes a slow pipeline.
+
+\paragraph{The bottleneck moves, but the configuration does not.}
+\code{num\_workers}, \code{prefetch\_factor} and \code{pin\_memory} are fixed at
+loader construction and never revisited.
+On a shared filesystem, observed read latency is not a property of the dataset
+alone but of whatever else is running on the cluster, and therefore varies over the
+lifetime of a single job.
+A statically configured loader cannot respond to a bottleneck that shifts underneath it.
+
+\paragraph{Future accesses are known exactly, not merely predictable.}
+Once the epoch permutation is drawn, the sequence of samples --- and hence the
+sequence of files --- is fully determined.
+Prefetching in this setting need not be speculative.
+This is the property that the method exploits, and it is what separates an exact
+staging schedule from a heuristic cache.
+
+\section{Research question}
+
+The thesis addresses one question:
+
+\begin{quote}
+Can a profiler-adaptive \code{DataLoader} that combines bottleneck classification,
+tar-shard staging, and predictive prefetching improve GPU utilisation and tile
+throughput for large-scale satellite-image segmentation on HPC systems?
+\end{quote}
+
+which decomposes into four sub-questions, each answered in this work by a specific
+experimental contrast rather than by an aggregate result:
+
+\begin{description}
+  \item[RQ1.] When does the \code{DataLoader} become the bottleneck on a shared
+    parallel filesystem?
+  \item[RQ2.] Do tar shards reduce many-small-file overhead?
+  \item[RQ3.] Does predictive scratch staging outperform fixed shard streaming?
+  \item[RQ4.] Can prefetch depth be auto-tuned from measured timings?
+\end{description}
+
+\section{Contributions}
+
+\begin{enumerate}
+  \item \textbf{A characterisation of the workload as an I/O problem.}
+    We describe the segmentation corpus not only by its class balance and evaluation
+    metrics, as is conventional, but by its file count, size distribution and access
+    pattern --- the characterisation that motivates staging and that the segmentation
+    literature usually leaves implicit (Chapter~\ref{ch:materials}).
+
+  \item \textbf{\pads{}, a profiler-adaptive data-staging loader.}
+    A drop-in \code{DataLoader} replacement that measures \Tdata{}, \Tdecode{},
+    \Thtod{} and \Tgpu{} over a bounded warm-up window, classifies the dominant
+    bottleneck by an inspectable rule set, selects among loose, shard and stage
+    policies, and derives its prefetch depth from the measured staging and
+    consumption times rather than from a user-supplied constant
+    (Chapter~\ref{ch:methodology}).
+
+  \item \textbf{An evaluation that isolates each mechanism.}
+    \pads{} is compared against an unmodified loader, a manually tuned loader,
+    fixed tar-shard streaming, and a full pre-staging upper bound, so that the
+    benefit of sharding is separated from the benefit of staging, and the benefit
+    of staging from the benefit of \emph{predicting} what to stage
+    (Chapter~\ref{ch:results}).
+
+  \item \textbf{A reproduction of the reference segmentation results, and an account
+    of what it takes to obtain them.}
+    We reproduce the reference configuration of Casini et al.~\cite{Casini23} and
+    document the pipeline defects and environmental sensitivities encountered in
+    doing so, including a case in which reduced batch size --- forced by accelerator
+    memory --- degrades IoU substantially through its effect on batch normalisation
+    statistics (Appendix~\ref{app:reproduction}).
+\end{enumerate}
+
+\section{Thesis structure}
+
+Chapter~\ref{ch:literature} reviews segmentation architectures, deep learning for
+archaeological prospection, and prior work on I/O for large-scale training.
+Chapter~\ref{ch:materials} describes the dataset in both of its characterisations
+and the three model architectures.
+Chapter~\ref{ch:methodology} presents \pads{}.
+Chapter~\ref{ch:results} reports the evaluation, and Chapter~\ref{ch:ablation}
+isolates the contribution of individual components.
+Chapter~\ref{ch:conclusions} concludes, and Chapter~\ref{ch:futurework} discusses
+limitations and further work.

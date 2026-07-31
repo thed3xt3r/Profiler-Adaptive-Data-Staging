@@ -1,0 +1,149 @@
+%% ============================================================================
+\chapter{Reproduction of the Reference Configuration}
+\label{app:reproduction}
+\addcontentsline{lot}{chapter}{Reproduction of the Reference Configuration}
+%% ============================================================================
+
+This appendix documents an independent reproduction of the reference configuration
+of Casini et al.~\cite{Casini23}, undertaken on a single-GPU workstation before the
+cluster experiments.
+It is included for two reasons.
+First, the accuracy floor asserted in Section~\ref{sec:dataset} is only meaningful if
+it has been established rather than assumed.
+Second, the reproduction surfaced a set of pipeline defects
+(Appendix~\ref{app:defects}) and one instructive environmental sensitivity, both of
+which bear on how the primary results should be read.
+
+\section{Environment}
+
+Reproduction was performed on an NVIDIA RTX~3050 Laptop GPU (4~GB VRAM,
+driver 566.07), 8 logical CPU cores and 15.7~GB system RAM, running
+PyTorch 2.13.0+cu126 with CUDA 12.6 and Lightning 2.6.5 under Python 3.12.
+The corpus was the Bing 1k configuration: 4{,}734 site tiles and 1{,}155 empty
+tiles, 5{,}889 image/mask pairs totalling 957~MB, split 4{,}712 train /
+588 validation / 589 test under seed 1234.
+
+The site count is consistent with the unfiltered variant of the published corpus:
+$4{,}934 - 200 = 4{,}734$, i.e. the top-200-by-area removal applied but not the
+684-site minimum-size filter.
+The applicable reference figure is therefore Model~1 of
+Table~\ref{tab:casini-reference}, $74.17 \pm 0.38$.
+
+\section{Faithfulness of the port}
+
+The reference implementation was ported directly rather than reimplemented.
+The following were held identical to the published notebook: MA-Net with an
+EfficientNet-B3 ImageNet-pretrained encoder; \code{FocalLoss(mode=BINARY)} with
+$\alpha$ unset; \code{Adam} at $10^{-4}$; \code{precision=32}; 20 epochs; a
+\code{RandomCrop(512)} followed by \code{Resize(256)} for both training and
+validation; augmentation by single-axis flip, 90-degree rotation and
+brightness/contrast jitter, all at $p = 0.25$; standardisation of raw
+0--255 input by ImageNet statistics without prior division by 255; evaluation by
+\code{smp.metrics} with \code{reduction="macro-imagewise"}; final-epoch weights
+rather than best-validation weights; and ten test passes with independent random
+crops.
+
+Two adaptations were unavoidable.
+The published notebook targets PyTorch Lightning 1.x, whose
+\code{training\_epoch\_end} and \code{validation\_epoch\_end} hooks were removed in
+2.x; per-epoch aggregation was therefore reimplemented explicitly.
+The \code{A.Flip} transform has since been removed from \code{albumentations};
+its semantics --- selecting one of \{vertical, horizontal, both\} uniformly, rather
+than applying two independent flips --- were reproduced explicitly and verified
+empirically over 4{,}000 samples, yielding 0.752 no-flip and 0.089 / 0.084 / 0.075
+for the three flip modes against an expected 0.750 / 0.083 each.
+
+\section{Result and the batch-size constraint}
+\label{sec:repro-result}
+
+Under this configuration the reproduction attained an IoU of
+$\mathbf{0.4470 \pm 0.0059}$ under the reference reduction, against the published
+$0.7417 \pm 0.0038$.
+
+The discrepancy is attributable to accelerator memory.
+The reference configuration trains at batch size 32.
+Measured peak allocation for MA-Net/EfficientNet-B3 at $256 \times 256$ in fp32 is
+2.44~GB at batch 8, 4.65~GB at batch 16, and out-of-memory at batch 32 on a 4~GB
+card; at half precision, batch 32 requires 4.94~GB and therefore also does not fit.
+Batch 32 is thus unreachable on this hardware at any precision.
+The reproduction used batch 8 with gradient accumulation $\times 4$, which preserves
+the effective batch --- and hence the gradient signal --- but leaves batch
+normalisation estimating its statistics from 8 samples per forward pass rather
+than 32.
+
+EfficientNet is batch-normalisation dense, and the degradation of BN statistics at
+small batch is a well-characterised effect; it is the motivating problem for
+Group Normalization~\cite{Wu18,Ioffe15}.
+That this is the operative cause rather than a defect in the port is corroborated by
+the cluster measurements of Section~\ref{sec:measured-baseline}, where the same code
+at batch 32 on a V100 attains 68--73\% IoU, consistent with the published figure.
+
+\paragraph{Consequence for this thesis.}
+All accuracy figures reported in the main text are drawn from the cluster.
+The workstation environment is used for development, defect analysis and
+instrumentation work, for which it is adequate, and not for any claim about
+segmentation quality.
+
+\section{Metric reduction}
+\label{sec:repro-metric}
+
+The reduction convention accounts for a material part of the difference between
+naively reported and reference-comparable numbers.
+Measured on the same trained checkpoint (Table~\ref{tab:reduction}):
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lc}
+\toprule
+Reduction & IoU \\
+\midrule
+Globally pooled, site-bearing tiles only          & 0.4131 \\
+Per-image mean, site-bearing tiles only           & 0.3364 \\
+Per-image mean, all tiles (reference convention)  & \textbf{0.4504} \\
+\bottomrule
+\end{tabular}
+\caption{Effect of the aggregation convention on reported IoU for an identical
+model. The reference convention counts a correctly-predicted empty tile as a
+perfect match.}
+\label{tab:reduction}
+\end{table}
+
+Two hypotheses about the metric were tested and rejected.
+Excluding the empty tiles entirely changes pooled IoU by $0.001$, because they
+contribute only 0.8\% of false positives --- the model classifies 102 of 104 empty
+tiles perfectly.
+Sweeping the decision threshold over $\{0.2, \dots, 0.7\}$ confirms $0.5$ is optimal,
+so the reported figure is not an artefact of a poorly chosen operating point.
+
+\section{Error structure}
+
+The aggregate figure conceals a strongly bimodal error distribution.
+On the validation split, per-image IoU has a 90th percentile of $0.785$ --- at
+reference level --- while 35.3\% of tiles score below $0.1$.
+Performance is strongly monotonic in the fraction of the crop occupied by the site
+(Table~\ref{tab:by-area}).
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Site area in crop & Tiles & Mean IoU & Fraction $< 0.1$ \\
+\midrule
+0.5--2\%    &  25 & 0.024 & 0.92 \\
+2--5\%      &  83 & 0.179 & 0.57 \\
+5--12\%     & 137 & 0.285 & 0.37 \\
+12--30\%    & 151 & 0.440 & 0.19 \\
+30--100\%   &  86 & 0.488 & 0.23 \\
+\bottomrule
+\end{tabular}
+\caption{Per-image IoU by the fraction of the cropped tile occupied by the
+annotated site.}
+\label{tab:by-area}
+\end{table}
+
+This is consistent with the original authors' rationale for excluding sites below
+1{,}000~m\textsuperscript{2}: on small objects, a few pixels of boundary error
+destroys the ratio, and such annotations frequently denote sites of imprecise
+location rather than precise small mounds.
+It also explains the $+3.9$ point gain the reference reports from filtering
+(Model~1 $\rightarrow$ Model~2).

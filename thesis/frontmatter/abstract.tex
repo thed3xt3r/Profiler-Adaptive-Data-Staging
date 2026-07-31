@@ -1,0 +1,40 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Deep learning training on high-performance computing (HPC) clusters is conventionally
+treated as a problem of accelerator throughput, and optimisation effort is directed
+at the model.
+For semantic segmentation over remotely sensed imagery, however, the training corpus
+is typically stored as very large numbers of small image and mask files on a shared
+parallel filesystem, and the cost of reaching those files is borne once per sample.
+%
+We show that for a representative archaeological site-detection workload
+--- the detection of mounded settlement sites (\emph{tells}) in the southern
+Mesopotamian floodplain~\cite{Casini23} ---
+the accelerator is frequently idle while the data path is the binding constraint,
+and that the loader configuration moves end-to-end segmentation quality by a margin
+comparable to the entire architectural search reported in the original study.
+%
+We introduce \pads{} (Profiler-Adaptive Data Staging), a drop-in replacement for the
+PyTorch \code{DataLoader} that profiles its own behaviour over a short warm-up window,
+classifies the dominant bottleneck from the measured timings, selects a staging policy
+--- loose files, tar shards, or node-local scratch staging --- and executes that policy
+with a prefetch depth derived from the measurements rather than supplied by the user.
+%
+Because the sample permutation is fixed at the start of each epoch, the identity of
+future file accesses is known exactly, so prefetching is exact rather than speculative.
+%
+We evaluate \pads{} against an unmodified loader, a manually tuned loader, fixed
+tar-shard streaming, and a full pre-staging upper bound, on three segmentation
+architectures spanning a CNN encoder--decoder, an attention-augmented CNN, and a
+transformer.
+\PLACEHOLDER{headline throughput and GPU-utilisation result, once the HPC evaluation
+is complete}
+%
+Alongside the positive throughput claim we make a negative accuracy claim: a pipeline
+optimisation is only sound if segmentation quality is preserved, and we therefore
+report intersection-over-union against a reference reproduction throughout.
+
+\vspace{1em}
+\textbf{Keywords:} Data Staging; I/O Bottlenecks; Semantic Segmentation; Remote Sensing;
+High-Performance Computing; Archaeological Prospection

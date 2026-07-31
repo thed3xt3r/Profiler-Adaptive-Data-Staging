@@ -1,0 +1,38 @@
+\babel@toc {english}{}\relax 
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {chapter}{Materials and Datasets}{17}{chapter.3}%
+\contentsline {table}{\numberline {3.1}{\ignorespaces IoU scores reported by Casini et al.~\cite {Casini23} for their experimental configurations.}}{19}{table.caption.12}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Baseline characteristics with the default PyTorch \texttt {DataLoader}.}}{21}{table.caption.13}%
+\contentsline {table}{\numberline {3.3}{\ignorespaces Characteristics with loader parameters tuned (\texttt {num\_workers=4}, \texttt {pin\_memory=True}).}}{22}{table.caption.14}%
+\addvspace {10\p@ }
+\contentsline {chapter}{Methodology}{23}{chapter.4}%
+\contentsline {table}{\numberline {4.1}{\ignorespaces Signals recorded during the warm-up window.}}{24}{table.caption.15}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Bottleneck classification rules.}}{25}{table.caption.18}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces The three staging policies.}}{26}{table.caption.21}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces Evaluation methods and the contrast each provides.}}{28}{table.caption.26}%
+\addvspace {10\p@ }
+\contentsline {chapter}{Results}{29}{chapter.5}%
+\contentsline {table}{\numberline {5.1}{\ignorespaces Per-stage timing breakdown across architectures and loader configurations. \textcolor {red}{[\textbf {TO MEASURE:} populate from cluster profiling runs]}}}{29}{table.caption.27}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Filesystem operations issued against GPFS per epoch. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{30}{table.caption.28}%
+\contentsline {table}{\numberline {5.3}{\ignorespaces End-to-end comparison. Method 2 is the bar PADS-Loader{} must clear; method 4 is the ceiling. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{30}{table.caption.29}%
+\contentsline {table}{\numberline {5.4}{\ignorespaces Fixed prefetch depths against the auto-tuned depth. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{31}{table.caption.30}%
+\contentsline {table}{\numberline {5.5}{\ignorespaces Cost of adaptation. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{31}{table.caption.31}%
+\contentsline {table}{\numberline {5.6}{\ignorespaces Segmentation quality under each data path. Reduction convention as Section~\ref {sec:repro-metric}. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{31}{table.caption.32}%
+\addvspace {10\p@ }
+\contentsline {chapter}{Ablation Study}{32}{chapter.6}%
+\contentsline {table}{\numberline {6.1}{\ignorespaces Component ablation. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{32}{table.caption.33}%
+\contentsline {table}{\numberline {6.2}{\ignorespaces Behaviour as scratch capacity is constrained. Method~4 of Section~\ref {sec:evaluation-plan} is unavailable below 100\%; PADS-Loader{} should degrade gracefully rather than fail. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{32}{table.caption.34}%
+\contentsline {table}{\numberline {6.3}{\ignorespaces Effect of input configuration. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{33}{table.caption.35}%
+\contentsline {table}{\numberline {6.4}{\ignorespaces Sensitivity of the policy decision to the classification threshold. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{33}{table.caption.36}%
+\contentsline {table}{\numberline {6.5}{\ignorespaces Trade-off between shuffling fidelity and throughput. \textcolor {red}{[\textbf {TO MEASURE:} populate]}}}{34}{table.caption.37}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {chapter}{Reproduction of the Reference Configuration}{41}{appendix.A}%
+\contentsline {table}{\numberline {A.1}{\ignorespaces Effect of the aggregation convention on reported IoU for an identical model. The reference convention counts a correctly-predicted empty tile as a perfect match.}}{42}{table.caption.54}%
+\contentsline {table}{\numberline {A.2}{\ignorespaces Per-image IoU by the fraction of the cropped tile occupied by the annotated site.}}{43}{table.caption.55}%
+\addvspace {10\p@ }
+\contentsline {chapter}{Pipeline Defects Identified During Reproduction}{44}{appendix.B}%
+\contentsline {table}{\numberline {B.1}{\ignorespaces Accuracy-affecting defects.}}{45}{table.caption.56}%
