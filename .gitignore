@@ -14,11 +14,20 @@ venv/
 
 # Data and Checkpoints
 bing_1k/
+data/
 checkpoints/
 checkpoints_*/
 *.ckpt
 *.pt
 *.pth
+
+# Local run outputs: PADS defaults PROJECT_ROOT to <repo>/runs so logs and
+# checkpoints stay out of the baseline deeplab/ and segformer/ source dirs.
+runs/
+
+# PADS 'stage' policy staging area (local runs)
+scratch/
+*.db
 
 # Logs and Outputs
 logs/

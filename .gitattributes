@@ -1,0 +1,22 @@
+# Shell and SLURM scripts must keep LF endings. Checked out with CRLF on a
+# Windows clone and pushed back, they fail on the cluster with
+#   /usr/bin/env: 'bash\r': No such file or directory
+*.slurm    text eol=lf
+*.sh       text eol=lf
+*.def      text eol=lf
+
+# Python is executed on both platforms; LF is safe everywhere.
+*.py       text eol=lf
+
+# Windows-only launchers keep CRLF.
+*.ps1      text eol=crlf
+*.bat      text eol=crlf
+
+# Never touch binaries.
+*.png      binary
+*.jpg      binary
+*.pdf      binary
+*.ckpt     binary
+*.tar      binary
+*.sif      binary
+*.ipynb    -text
