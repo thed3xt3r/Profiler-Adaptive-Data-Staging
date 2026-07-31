@@ -21,19 +21,90 @@ from dataset import load_dataset, get_transforms, ArcheoDataset, TarArcheoDatase
 from model import ArcheoModel
 
 # ---------------------------------------------------------------------------
-# GPU compatibility workaround
+# GPU setup
 # ---------------------------------------------------------------------------
+# Let fp32 matmuls use tensor cores where the card has them (Ampere and later,
+# e.g. the RTX 30xx series). Ignored on older hardware.
 torch.set_float32_matmul_precision('medium')
 
-# Monkey-patch Lightning's device capability check to bypass driver error
-try:
-    import lightning.fabric.accelerators.cuda
-    def _dummy_is_ampere_or_later(device):
-        """Bypass device capability check for driver compatibility."""
-        return False
-    lightning.fabric.accelerators.cuda._is_ampere_or_later = _dummy_is_ampere_or_later
-except (ImportError, AttributeError):
-    pass  # Not needed if lightning_fabric is not installed or API changed
+# NOTE: the HPC build carried a monkey-patch that forced Lightning's
+# _is_ampere_or_later() to return False, to work around a driver mismatch on
+# the cluster nodes. It is deliberately gone: on a local Ampere card it only
+# suppresses the fast bf16/tensor-core paths we actually want.
+
+
+# ---------------------------------------------------------------------------
+# Path resolution
+# ---------------------------------------------------------------------------
+# On the HPC every path hung off ~/Thesis. Locally the code, the dataset and the
+# run outputs sit in three different places, so both roots are resolved from the
+# environment (or --project_root / --data_root) with a filesystem probe as the
+# fallback. PADS_PROJECT_ROOT receives checkpoints, logs and scratch;
+# PADS_DATA_ROOT is the directory that *contains* the bing_1k folder.
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+DATASET_NAME = "bing_1k"
+
+
+def resolve_project_root(cli_value=None):
+    """Directory that receives checkpoints, logs and scratch.
+
+    Defaults to <repo>/runs, NOT the repo root. The HPC layout puts outputs one
+    level above the code (~/Thesis/segformer/logs for ~/Thesis/PADS/segformer/train.py),
+    but this repo root already holds the baseline `deeplab/` and `segformer/`
+    source directories, so that convention would write PADS logs straight into
+    them and make the two indistinguishable. The structure *below* the root is
+    unchanged, so PADS_PROJECT_ROOT=~/Thesis restores the exact cluster layout.
+    """
+    value = cli_value or os.environ.get("PADS_PROJECT_ROOT") or os.path.join(REPO_ROOT, "runs")
+    return os.path.abspath(os.path.expanduser(value))
+
+
+def resolve_data_root(cli_value=None):
+    """Directory that contains the bing_1k dataset folder."""
+    value = cli_value or os.environ.get("PADS_DATA_ROOT")
+    if value:
+        return os.path.abspath(os.path.expanduser(value))
+
+    # No override: take the first candidate that actually holds the dataset, so
+    # the same file works locally and on the cluster.
+    candidates = (
+        os.path.join(REPO_ROOT, "data"),
+        os.path.join(os.path.dirname(os.path.dirname(REPO_ROOT)), "Thesis", "source"),
+        os.path.expanduser("~/Thesis"),
+    )
+    for candidate in candidates:
+        if os.path.isdir(os.path.join(candidate, DATASET_NAME, "train")):
+            return os.path.abspath(candidate)
+    return os.path.abspath(candidates[0])
+
+
+def resolve_scratch_dir(project_root):
+    """Node-local staging area used by the PADS 'stage' policy."""
+    value = os.environ.get("PADS_SCRATCH_DIR") or os.path.join(project_root, "scratch")
+    scratch_dir = os.path.abspath(os.path.expanduser(value))
+    # StagingArcheoDataset swallows copy errors, so a missing directory would
+    # silently downgrade the stage policy to a plain read. Create it up front.
+    os.makedirs(scratch_dir, exist_ok=True)
+    return scratch_dir
+
+
+def resolve_tar_paths(data_root):
+    """Return (originals_tar, negs_tar) for the 'shard' policy, or (None, None).
+
+    Uncompressed .tar is preferred over .tar.gz: the payload is already-compressed
+    JPEG/PNG, so gzip costs random-access performance for no size benefit.
+    Build them with PADS/build_tars.py -- nothing else in the repo produces
+    archives this dataset can read.
+    """
+    shard_dir = os.environ.get("PADS_SHARD_DIR") or os.path.join(data_root, f"{DATASET_NAME}_tars")
+    for ext in (".tar", ".tar.gz"):
+        originals_tar = os.path.join(shard_dir, f"originals{ext}")
+        negs_tar = os.path.join(shard_dir, f"negs{ext}")
+        if os.path.exists(originals_tar) and os.path.exists(negs_tar):
+            return originals_tar, negs_tar
+    return None, None
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +174,35 @@ class TrainingPlotCallback(pl.Callback):
     def _append(lst, value):
         if value is not None:
             lst.append(float(value))
+
+
+class NonFiniteLossGuard(pl.Callback):
+    """Stop training as soon as the epoch's mean training loss is not finite.
+
+    An fp16 overflow is a silent disaster otherwise: the loss goes NaN, every
+    metric collapses to 0, and EarlyStopping still waits out its full patience
+    on a model that is already dead. On this project that cost 15 wasted epochs
+    (~2 h) before anyone noticed the "best" score was just the last value before
+    the blowup.
+
+    The check is at epoch level on purpose. Individual batches may legitimately
+    produce inf/NaN under AMP -- GradScaler detects those, skips the step and
+    lowers the scale -- so aborting on the first bad batch would false-positive.
+    A non-finite *epoch mean* means the weights themselves are gone.
+    """
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        loss = trainer.callback_metrics.get("train/loss_epoch")
+        if loss is None or torch.isfinite(torch.as_tensor(loss)).all():
+            return
+        raise RuntimeError(
+            f"\nTraining loss became non-finite ({loss}) at epoch "
+            f"{trainer.current_epoch}; the model will not recover.\n"
+            f"This is almost always fp16 overflow. EfficientNet encoders are "
+            f"especially prone to it (SiLU + squeeze-excite).\n"
+            f"Re-run with --precision bf16-mixed (same exponent range as fp32, "
+            f"native on Ampere and later) or --precision 32."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +469,39 @@ def parse_args():
     parser.add_argument("--profile_warmup", type=int, default=1)
     parser.add_argument("--profile_active", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=32)
+    # Training is at 512x512 now (the Resize(256) was dropped to match the
+    # reference implementation), which is 4x the pixels of the old default.
+    # SegFormer-B0 is the lightest of the three; measured peak on a 4 GB card at
+    # fp16: batch 8 -> 2.24 GB, batch 16 -> 4.41 GB (over capacity).
+    # 8 x 4 keeps the effective batch at 32, matching the HPC runs.
+    parser.add_argument("--batch_size", type=int, default=32,
+                        help="Per-step batch size (limited by VRAM)")
+    parser.add_argument("--accumulate", type=int, default=1,
+                        help="Gradient accumulation steps; effective batch = batch_size * accumulate")
+    parser.add_argument("--precision", type=str, default="32",
+                        help="Lightning precision, e.g. 16-mixed, bf16-mixed, 32")
+    parser.add_argument("--num_workers", type=int, default=4,
+                        help="DataLoader workers (Windows spawns processes, keep modest)")
+    parser.add_argument("--data_policy", type=str, default=None,
+                        choices=["loose", "shard", "stage"],
+                        help="Force a PADS data policy instead of letting the profiler "
+                             "choose (or defaulting to loose). Needed to A/B the policies.")
+    parser.add_argument("--profile_only", action="store_true",
+                        help="Run the PADS policy profiler, report the decision, and exit "
+                             "without training. Implies --profile_policy.")
+    parser.add_argument("--scale_input", action="store_true",
+                        help="Divide inputs by 255 before ImageNet standardisation. "
+                             "DEVIATION from Casini et al., which standardises raw 0-255.")
+    parser.add_argument("--focal_alpha", type=float, default=None,
+                        help="Focal loss alpha. Reference uses None (unweighted).")
+    parser.add_argument("--val_crop", type=str, default="random", choices=["random", "center"],
+                        help="Validation crop. Reference random-crops and averages 10 runs.")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Ignore any existing last.ckpt and train from epoch 0")
+    parser.add_argument("--project_root", type=str, default=None,
+                        help="Output root for checkpoints/logs/scratch (env: PADS_PROJECT_ROOT)")
+    parser.add_argument("--data_root", type=str, default=None,
+                        help="Directory containing the bing_1k folder (env: PADS_DATA_ROOT)")
     return parser.parse_args()
 
 
@@ -377,8 +509,20 @@ def _build_pruning_callback(trial):
     if trial is None:
         return None
 
+    # optuna >= 4.9 moved the Lightning integration into the standalone
+    # optuna-integration package; the optuna.integration alias still resolves but
+    # emits a FutureWarning and goes away in v6. Try the new path first, then the
+    # old one, and degrade to "no pruning" rather than taking down the study.
     try:
-        from optuna.integration import PyTorchLightningPruningCallback
+        from optuna_integration.pytorch_lightning import PyTorchLightningPruningCallback
+    except ImportError:
+        try:
+            from optuna.integration import PyTorchLightningPruningCallback
+        except Exception as exc:
+            print(f"[Optuna] Warning: pruning callback unavailable ({exc}); continuing without it.")
+            return None
+
+    try:
         return PyTorchLightningPruningCallback(trial, monitor="valid/iou")
     except Exception as exc:
         print(f"[Optuna] Warning: pruning callback unavailable ({exc}); continuing without it.")
@@ -396,7 +540,13 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
     callbacks_list = []
     checkpoint_callback = ModelCheckpoint(
         dirpath=config["checkpoint_path"],
-        filename=f"segformer-b0-trial{trial.number if trial else '0'}-{{epoch:02d}}-{{valid/iou:.4f}}",
+        # The monitored metric is "valid/iou", and on Windows that slash is a
+        # path separator: with auto_insert_metric_name the name is interpolated
+        # verbatim and Lightning ends up creating a "...-valid\" DIRECTORY
+        # holding "iou=0.3287.ckpt". Spell the labels out and substitute only
+        # the values so the checkpoint stays a single flat file.
+        filename=f"segformer-b0-trial{trial.number if trial else '0'}-epoch{{epoch:02d}}-iou{{valid/iou:.4f}}",
+        auto_insert_metric_name=False,
         monitor="valid/iou",
         mode="max",
         save_top_k=1,
@@ -412,6 +562,7 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
         verbose=True,
     )
     callbacks_list.append(early_stopping)
+    callbacks_list.append(NonFiniteLossGuard())
 
     if trial is None:
         plot_callback = TrainingPlotCallback(
@@ -426,6 +577,7 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
     trainer = pl.Trainer(
         max_epochs=config["epochs"],
         precision=config["precision"],
+        accumulate_grad_batches=config.get("accumulate_grad_batches", 1),
         accelerator="gpu" if torch.cuda.is_available() else "cpu",
         devices=1,
         logger=pl_loggers.TensorBoardLogger(config["checkpoint_path"]),
@@ -444,17 +596,41 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
     # Resume from this run's own last checkpoint if one already exists (e.g.
     # a previous attempt at this exact trial/config got preempted mid-training)
     # instead of silently restarting from epoch 0 and losing that progress.
+    # --fresh opts out: without it, re-running a config whose last.ckpt already
+    # reached max_epochs looks like a no-op ("max_epochs reached", nothing saved).
     resume_ckpt_path = os.path.join(config["checkpoint_path"], "last.ckpt")
     resume_ckpt_path = resume_ckpt_path if os.path.exists(resume_ckpt_path) else None
-    if resume_ckpt_path:
+    if config.get("fresh") and resume_ckpt_path:
+        print(f"\n[Resume] --fresh given; ignoring {resume_ckpt_path} and training from epoch 0.")
+        resume_ckpt_path = None
+    elif resume_ckpt_path:
         print(f"\n[Resume] Found existing checkpoint at {resume_ckpt_path}; resuming training from there.")
+        print("         Pass --fresh (or -Fresh) to ignore it and start from epoch 0.")
 
-    trainer.fit(
-        model,
-        train_dataloaders=train_loader,
-        val_dataloaders=val_loader,
-        ckpt_path=resume_ckpt_path,
-    )
+    try:
+        trainer.fit(
+            model,
+            train_dataloaders=train_loader,
+            val_dataloaders=val_loader,
+            ckpt_path=resume_ckpt_path,
+        )
+    except Exception as exc:
+        # Resuming a checkpoint that already ran past --epochs is a hard
+        # MisconfigurationException in Lightning. Turn that stack trace into
+        # something actionable, since both ways out are one flag away.
+        message = str(exc)
+        if resume_ckpt_path and "max_epochs" in message and "current_epoch" in message:
+            # print() not SystemExit(msg): the latter writes to stderr, which the
+            # launcher redirects to a .err file, so the guidance would be invisible.
+            print(
+                f"\n[Resume] {message}\n"
+                f"         {resume_ckpt_path}\n"
+                f"         has already trained past --epochs {config['epochs']}. Either raise\n"
+                f"         --epochs to continue it, or pass --fresh (-Fresh) to start over.",
+                flush=True,
+            )
+            raise SystemExit(1) from exc
+        raise
 
     best_iou = trainer.callback_metrics.get("valid/iou")
     best_iou_val = float(best_iou) if best_iou is not None else 0.0
@@ -479,7 +655,9 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
 
             profile_loader = DataLoader(
                 val_dataset, batch_size=config["batch_size"],
-                shuffle=False, drop_last=False, num_workers=4, pin_memory=True
+                shuffle=False, drop_last=False,
+                num_workers=config.get("num_workers", 4),
+                pin_memory=torch.cuda.is_available(),
             )
 
             profile_model(
@@ -502,25 +680,54 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
 def main():
     args = parse_args()
 
-    PROJECT_ROOT = os.path.expanduser("~/Thesis")
+    PROJECT_ROOT = resolve_project_root(args.project_root)
+    PATH_DATASETS = resolve_data_root(args.data_root)
     PATH_LOG = os.path.join(PROJECT_ROOT, "checkpoints_segformer")
-    PATH_DATASETS = PROJECT_ROOT
+    SCRATCH_DIR = resolve_scratch_dir(PROJECT_ROOT)
+    ORIGINALS_TAR, NEGS_TAR = resolve_tar_paths(PATH_DATASETS)
+
+    dataset_path = os.path.join(PATH_DATASETS, DATASET_NAME)
+    if not os.path.isdir(os.path.join(dataset_path, "train")):
+        raise SystemExit(
+            f"Dataset not found: {os.path.join(dataset_path, 'train')}\n"
+            f"Point --data_root (or PADS_DATA_ROOT) at the directory containing "
+            f"the '{DATASET_NAME}' folder."
+        )
+
+    print("=" * 60)
+    print("SegFormer - SegFormer B0")
+    print(f"  Project root: {PROJECT_ROOT}")
+    print(f"  Dataset:      {dataset_path}")
+    print(f"  Scratch:      {SCRATCH_DIR}")
+    if torch.cuda.is_available():
+        gpu_gb = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
+        print(f"  Device:       {torch.cuda.get_device_name(0)} ({gpu_gb:.1f} GB)")
+    else:
+        print("  Device:       CPU (no CUDA device visible - training will be very slow)")
+    print("=" * 60)
 
     base_config = {
         "timestamp": datetime.now().strftime("%d-%m-%Y_%H%M%S"),
-        "dataset_path": os.path.join(PATH_DATASETS, "bing_1k"),
+        "dataset_path": dataset_path,
         "checkpoint_path": PATH_LOG,
         "random_seed": 1234,
         "encoder": "b0",
         "loss": "focal",
         "learning_rate": 0.0001,
-        "precision": 32,
+        "precision": args.precision,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
+        "accumulate_grad_batches": args.accumulate,
+        "num_workers": args.num_workers,
+        "scale_input": args.scale_input,
+        "focal_alpha": args.focal_alpha,
+        "val_crop": args.val_crop,
+        "forced_data_policy": args.data_policy,
+        "fresh": args.fresh,
         "in_channels": 3,
         "patience": 15,
         "profile": args.profile,
-        "profile_policy": args.profile_policy,
+        "profile_policy": args.profile_policy or args.profile_only,
         "profile_batches": args.profile_batches,
         "profile_wait": args.profile_wait,
         "profile_warmup": args.profile_warmup,
@@ -551,31 +758,37 @@ def main():
         indices
     )
 
-    train_transform, val_transform = get_transforms()
+    train_transform, val_transform = get_transforms(val_crop=base_config["val_crop"])
 
-    # Create datasets based on the determined policy
-    train_dataset = create_dataset(
-        train_data, originals_images_dir, originals_masks_dir,
-        negs_images_dir, negs_masks_dir, transform=train_transform,
-        policy=base_config.get("data_policy", "loose"),
-        scratch_dir=os.path.join(PROJECT_ROOT, "scratch")
-    )
-    val_dataset = create_dataset(
-        val_data, originals_images_dir, originals_masks_dir,
-        negs_images_dir, negs_masks_dir, transform=val_transform,
-        policy=base_config.get("data_policy", "loose"),
-        scratch_dir=os.path.join(PROJECT_ROOT, "scratch")
-    )
-    test_dataset = create_dataset(
-        test_data, originals_images_dir, originals_masks_dir,
-        negs_images_dir, negs_masks_dir, transform=val_transform,
-        policy=base_config.get("data_policy", "loose"),
-        scratch_dir=os.path.join(PROJECT_ROOT, "scratch")
+    dataset_kwargs = dict(
+        scratch_dir=SCRATCH_DIR,
+        originals_tar_path=ORIGINALS_TAR,
+        negs_tar_path=NEGS_TAR,
     )
 
-    if base_config.get("profile_policy"):
+    # ------------------------------------------------------------------
+    # Decide the policy BEFORE building the datasets it selects.
+    # ------------------------------------------------------------------
+    # This block used to sit *after* dataset construction, so the datasets were
+    # always built with the "loose" default and never rebuilt once the profiler
+    # had spoken. The selected policy reached only build_dataloader(), whose
+    # entire use of it is picking num_workers/prefetch_factor -- meaning
+    # TarArcheoDataset and StagingArcheoDataset were never instantiated and
+    # every run, whatever policy it "selected", read loose files.
+    if base_config.get("forced_data_policy"):
+        base_config["data_policy"] = base_config["forced_data_policy"]
+        print(f"\n[PADS] Data policy forced to '{base_config['data_policy']}' via --data_policy "
+              f"(profiler not consulted).")
+    elif base_config.get("profile_policy"):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         print("\n[PADS] Profiling the data pipeline to choose a policy...")
+        # The profiler needs something to measure, so it probes the loose
+        # reader; the real datasets below are built with whatever it picks.
+        probe_dataset = create_dataset(
+            train_data, originals_images_dir, originals_masks_dir,
+            negs_images_dir, negs_masks_dir, transform=train_transform,
+            policy="loose", **dataset_kwargs
+        )
         probe_model = ArcheoModel(
             encoder_name=base_config["encoder"],
             in_channels=base_config["in_channels"],
@@ -584,7 +797,7 @@ def main():
         )
         policy_summary = profile_data_pipeline(
             probe_model,
-            train_dataset,
+            probe_dataset,
             batch_size=base_config["batch_size"],
             device=device,
             num_batches=base_config["profile_batches"],
@@ -595,13 +808,42 @@ def main():
     else:
         base_config["data_policy"] = "loose"
 
+    # Now build the datasets the policy actually calls for.
+    policy = base_config["data_policy"]
+    if policy == "shard" and not (ORIGINALS_TAR and NEGS_TAR):
+        print("[PADS] Warning: 'shard' selected but no tar archives found; "
+              "create_dataset will fall back to loose. Build them with "
+              "PADS/build_tars.py.")
+    print(f"[PADS] Building datasets with policy: {policy}")
+
+    train_dataset = create_dataset(
+        train_data, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, transform=train_transform,
+        policy=policy, **dataset_kwargs
+    )
+    val_dataset = create_dataset(
+        val_data, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, transform=val_transform,
+        policy=policy, **dataset_kwargs
+    )
+    test_dataset = create_dataset(
+        test_data, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, transform=val_transform,
+        policy=policy, **dataset_kwargs
+    )
+    print(f"[PADS] train dataset class: {type(train_dataset).__name__}")
+
+    if args.profile_only:
+        print("[PADS] --profile_only: policy decided and datasets built; exiting before training.")
+        return
+
     train_loader = build_dataloader(
         train_dataset,
         batch_size=base_config["batch_size"],
         shuffle=True,
         drop_last=True,
         policy=base_config["data_policy"],
-        num_workers=4,
+        num_workers=base_config["num_workers"],
     )
     val_loader = build_dataloader(
         val_dataset,
@@ -609,7 +851,7 @@ def main():
         shuffle=False,
         drop_last=False,
         policy=base_config["data_policy"],
-        num_workers=4,
+        num_workers=base_config["num_workers"],
     )
 
     if args.tune:
