@@ -1,4 +1,4 @@
-"""Build the tar archives that the PADS 'shard' policy reads.
+r"""Build the tar archives that the PADS 'shard' policy reads.
 
 Why this exists
 ---------------
