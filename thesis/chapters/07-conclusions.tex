@@ -1,0 +1,106 @@
+%% ============================================================================
+\chapter{Conclusions}
+\label{ch:conclusions}
+%% ============================================================================
+
+%% SCAFFOLD -- the argument is fixed; the numeric claims await Chapter 5.
+
+This thesis asked whether a profiler-adaptive \code{DataLoader} that combines
+bottleneck classification, tar-shard staging and predictive prefetching can improve
+GPU utilisation and tile throughput for large-scale satellite-image segmentation on
+HPC systems.
+
+\section{Summary of contributions}
+
+\paragraph{The workload is I/O-bound, and this is measurable.}
+Chapter~\ref{ch:materials} characterised the segmentation corpus not by its class
+balance --- the conventional description --- but by its file layout and access
+pattern.
+The Bing 1k configuration comprises 5{,}025 image and 5{,}025 mask files stored
+individually on a shared parallel filesystem, giving a per-sample cost dominated by
+metadata operations rather than by bytes transferred.
+Baseline profiling showed a CPU-to-GPU time ratio across all three architectures
+large enough that the data path is a plausible constraint, and showed that changing
+two loader flags moves MA-Net IoU by five points and DeepLabV3+ by seven --- a swing
+comparable to the entire architectural search of the reference study.
+
+\paragraph{\pads{}.}
+Chapter~\ref{ch:methodology} presented a drop-in loader that profiles its own
+behaviour over a bounded warm-up window, classifies the dominant bottleneck by an
+inspectable rule set over measured timings, selects among loose, shard and stage
+policies, and derives its prefetch depth from measured staging and consumption times
+subject to a scratch-capacity constraint.
+The design rests on a property of supervised training that is usually left unused:
+once the epoch permutation is drawn, future file accesses are known exactly, so
+prefetching is exact rather than speculative.
+
+\paragraph{An evaluation that isolates mechanisms.}
+\PLACEHOLDER{headline result: throughput and GPU-utilisation improvement over the
+tuned baseline, and position relative to the full pre-staging ceiling}
+
+\paragraph{A reproduction, and the defects it surfaced.}
+Appendix~\ref{app:reproduction} reproduced the reference configuration and
+established the accuracy floor against which any pipeline change is judged.
+Appendix~\ref{app:defects} documents the defects encountered, two of which are
+consequential beyond this thesis: the staging policy was applied to loader
+construction but not to dataset construction, so the selected policy never reached
+the data path; and no archive existed in a layout the shard reader could open.
+Together these mean that staging results collected before these fixes describe
+policy \emph{decisions} rather than executions.
+That finding is reported here in full because it invalidates prior measurements
+rather than merely improving on them.
+
+\section{Answers to the research questions}
+
+\begin{description}
+  \item[RQ1 --- When does the loader become the bottleneck?]
+    \PLACEHOLDER{answer from Section 5.1, including whether the predicted ordering
+    by \Tgpu{} held}
+  \item[RQ2 --- Do tar shards reduce many-small-file overhead?]
+    \PLACEHOLDER{answer from filesystem operation counts, and whether the reduction
+    translated into wall-clock benefit}
+  \item[RQ3 --- Does predictive staging outperform fixed streaming?]
+    \PLACEHOLDER{answer from 5 vs 3, positioned against the method-4 ceiling}
+  \item[RQ4 --- Can prefetch depth be auto-tuned?]
+    \PLACEHOLDER{answer from the depth sweep: did the derived depth land at the
+    swept optimum?}
+\end{description}
+
+\section{What this work does not claim}
+
+Three limits are worth stating plainly, because the value of the contribution
+depends on where its boundary lies.
+
+First, the result is specific to a corpus of many small files on a contended shared
+filesystem.
+A workload whose data already resides on fast node-local storage, or whose samples
+are large enough that per-file overhead amortises, has no bottleneck for \pads{} to
+remove; the loader is designed to detect exactly this and degrade to the ordinary
+\code{DataLoader}, and reporting that it does so is part of the claim rather than an
+admission against it.
+
+Second, \pads{} optimises the data path and does not improve the model.
+Segmentation quality is treated throughout as a constraint to be preserved rather
+than an objective to be advanced, and any IoU movement beyond the reference standard
+deviation is treated as a regression to be explained.
+
+Third, the accuracy figures reported in this thesis are drawn from the cluster
+environment.
+Reproduction work on a memory-constrained workstation attained substantially lower
+IoU under an otherwise faithful configuration, traced to the batch-size reduction
+forced by accelerator memory and its effect on batch-normalisation statistics
+(Appendix~\ref{app:reproduction}).
+That environment was adequate for instrumentation and defect analysis and is not a
+basis for accuracy claims.
+
+\section{Closing remarks}
+
+The broader observation this work supports is methodological.
+Effort in deep learning for remote sensing is conventionally directed at the model,
+and the reference study for this workload found that architectural choice moved IoU
+by only a few percentage points --- plausibly within the noise of random
+augmentation.
+Two loader flags moved it by five to seven.
+When the headroom in a training pipeline is no longer in the architecture, the
+question of where the accelerator's time actually goes stops being an implementation
+detail and becomes the research question.

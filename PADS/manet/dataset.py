@@ -67,7 +67,19 @@ def load_dataset(PATH, SEED, indices):
 
 
 def get_transforms():
-    """Get augmentation transforms for bing_1k (512x512 images resized to 256x256)"""
+    """Augmentation transforms for bing_1k, matching Casini et al. (2023).
+
+    The paper's pipeline (Methods, "Setting the input images"): images are saved
+    at ~1 px/m, so L=1000 m gives 1024x1024; a random L/2 = 512 crop is taken as
+    the input; then "the inputs were then scaled down to half of that to ease
+    computational requirements", i.e. to 256x256. The augmentation is "a random
+    rotation and mirroring, as well as a slight shift in brightness and
+    contrast", which is what is configured below.
+
+    NOTE: the Resize(256, 256) was briefly removed here on the assumption that
+    it was discarding resolution. That was wrong -- 256 is the paper's actual
+    input size, and training at 512 is a deviation from it, not a fix.
+    """
     train_transform = A.Compose([
         A.RandomCrop(512, 512, p=1.0),
         A.HorizontalFlip(p=0.25),
@@ -77,9 +89,13 @@ def get_transforms():
         A.Resize(256, 256),
         A.pytorch.ToTensorV2(),
     ])
-    
+
+    # CenterCrop here, deliberately differing from the paper: the paper random-
+    # crops at test time and averages ten runs, which is right for *reporting* a
+    # score but adds noise to per-epoch checkpoint selection and early stopping.
+    # Final numbers should be produced with the paper's protocol instead.
     val_transform = A.Compose([
-        A.RandomCrop(512, 512, p=1.0),
+        A.CenterCrop(512, 512, p=1.0),
         A.Resize(256, 256),
         A.pytorch.ToTensorV2()
     ])
@@ -178,9 +194,16 @@ class TarArcheoDataset(Dataset):
         self.profile_stats = []
 
     def _get_tar(self, tar_path):
-        """Get or open tar archive."""
+        """Get or open tar archive.
+
+        'r:*' autodetects instead of forcing 'r:gz'. Uncompressed archives are
+        strongly preferred here: the payload is already-compressed JPEG/PNG, so
+        gzip saves almost nothing on size while forcing extractfile() to
+        decompress from the stream start on every random access -- which is
+        exactly the access pattern a shuffled DataLoader produces.
+        """
         if tar_path not in self._tar_cache:
-            self._tar_cache[tar_path] = tarfile.open(tar_path, 'r:gz')
+            self._tar_cache[tar_path] = tarfile.open(tar_path, 'r:*')
         return self._tar_cache[tar_path]
 
     def __getitem__(self, idx):

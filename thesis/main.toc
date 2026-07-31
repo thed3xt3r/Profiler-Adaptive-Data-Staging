@@ -1,0 +1,106 @@
+\@ifundefined {etoctocstyle}{\let \etoc@startlocaltoc \@gobble \let \etoc@settocdepth \@gobble \let \etoc@depthtag \@gobble \let \etoc@setlocaltop \@gobble }{}
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{Acknowledgements}{3}{chapter*.2}%
+\contentsline {chapter}{Abstract}{4}{chapter*.3}%
+\contentsline {chapter}{Contents}{4}{chapter*.3}%
+\contentsline {chapter}{List of Figures}{8}{chapter*.4}%
+\contentsline {chapter}{List of Tables}{9}{chapter*.5}%
+\contentsline {chapter}{\numberline {1}Introduction}{11}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Background and Motivation}{11}{section.1.1}%
+\contentsline {section}{\numberline {1.2}The problem}{11}{section.1.2}%
+\contentsline {paragraph}{The bottleneck is real and it is not the model.}{11}{paragraph*.7}%
+\contentsline {paragraph}{The bottleneck moves, but the configuration does not.}{12}{paragraph*.8}%
+\contentsline {paragraph}{Future accesses are known exactly, not merely predictable.}{12}{paragraph*.9}%
+\contentsline {section}{\numberline {1.3}Research question}{12}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Contributions}{12}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Thesis structure}{13}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Literature Review}{14}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Semantic segmentation architectures}{14}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Deep learning for archaeological prospection}{15}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Input pipelines and I/O for large-scale training}{15}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Summary}{16}{section.2.4}%
+\contentsline {chapter}{\numberline {3}Materials and Datasets}{17}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Overview}{17}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Dataset: Casini et al. (2023)}{17}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Provenance and construction}{17}{subsection.3.2.1}%
+\contentsline {paragraph}{Dataset variant used in this thesis.}{18}{paragraph*.10}%
+\contentsline {subsection}{\numberline {3.2.2}Class imbalance}{18}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Evaluation metrics}{19}{subsection.3.2.3}%
+\contentsline {paragraph}{Reduction convention.}{19}{paragraph*.11}%
+\contentsline {subsection}{\numberline {3.2.4}Reference results}{19}{subsection.3.2.4}%
+\contentsline {section}{\numberline {3.3}The dataset as an I/O workload}{20}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Models}{20}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}MA-Net}{21}{subsection.3.4.1}%
+\contentsline {subsection}{\numberline {3.4.2}DeepLabV3+}{21}{subsection.3.4.2}%
+\contentsline {subsection}{\numberline {3.4.3}SegFormer}{21}{subsection.3.4.3}%
+\contentsline {subsection}{\numberline {3.4.4}Measured characteristics (Bing 1k, default loader)}{21}{subsection.3.4.4}%
+\contentsline {section}{\numberline {3.5}Hardware and software environment}{22}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Methodology}{23}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Motivation: when the DataLoader becomes the bottleneck}{23}{section.4.1}%
+\contentsline {section}{\numberline {4.2}PADS-Loader{}: system overview}{23}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Stage 1 --- Warm-up profiling}{24}{subsection.4.2.1}%
+\contentsline {paragraph}{Instrumentation.}{24}{paragraph*.16}%
+\contentsline {paragraph}{Aggregation.}{24}{paragraph*.17}%
+\contentsline {subsection}{\numberline {4.2.2}Stage 2 --- Bottleneck classification}{24}{subsection.4.2.2}%
+\contentsline {paragraph}{Thresholds.}{25}{paragraph*.19}%
+\contentsline {paragraph}{A note on what the classifier optimises.}{25}{paragraph*.20}%
+\contentsline {subsection}{\numberline {4.2.3}Stage 3 --- Policy selection}{25}{subsection.4.2.3}%
+\contentsline {paragraph}{Archive construction.}{26}{paragraph*.22}%
+\contentsline {subsection}{\numberline {4.2.4}Stage 4 --- Predictive staging}{26}{subsection.4.2.4}%
+\contentsline {paragraph}{Eviction.}{27}{paragraph*.23}%
+\contentsline {section}{\numberline {4.3}Metrics captured}{27}{section.4.3}%
+\contentsline {paragraph}{Pipeline metrics (the object of the optimisation).}{27}{paragraph*.24}%
+\contentsline {paragraph}{Model metrics (the constraint, not the objective).}{27}{paragraph*.25}%
+\contentsline {section}{\numberline {4.4}Evaluation plan}{27}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Experimental protocol}{28}{section.4.5}%
+\contentsline {chapter}{\numberline {5}Results}{29}{chapter.5}%
+\contentsline {section}{\numberline {5.1}RQ1: When does the DataLoader become the bottleneck?}{29}{section.5.1}%
+\contentsline {section}{\numberline {5.2}RQ2: Do tar shards reduce many-small-file overhead?}{29}{section.5.2}%
+\contentsline {section}{\numberline {5.3}RQ3: Does predictive staging outperform fixed streaming?}{30}{section.5.3}%
+\contentsline {section}{\numberline {5.4}RQ4: Can prefetch depth be auto-tuned?}{30}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Profiling overhead}{31}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Accuracy is preserved}{31}{section.5.6}%
+\contentsline {chapter}{\numberline {6}Ablation Study}{32}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Component ablation}{32}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Scratch capacity: the regime the design targets}{32}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Input size and the CORONA variant}{33}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Classifier threshold sensitivity}{33}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Shuffling randomness}{33}{section.6.5}%
+\contentsline {chapter}{\numberline {7}Conclusions}{35}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Summary of contributions}{35}{section.7.1}%
+\contentsline {paragraph}{The workload is I/O-bound, and this is measurable.}{35}{paragraph*.38}%
+\contentsline {paragraph}{PADS-Loader{}.}{35}{paragraph*.39}%
+\contentsline {paragraph}{An evaluation that isolates mechanisms.}{35}{paragraph*.40}%
+\contentsline {paragraph}{A reproduction, and the defects it surfaced.}{35}{paragraph*.41}%
+\contentsline {section}{\numberline {7.2}Answers to the research questions}{36}{section.7.2}%
+\contentsline {section}{\numberline {7.3}What this work does not claim}{36}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Closing remarks}{36}{section.7.4}%
+\contentsline {chapter}{\numberline {8}Limitations and Future Work}{37}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Limitations}{37}{section.8.1}%
+\contentsline {paragraph}{A single filesystem and a single cluster.}{37}{paragraph*.42}%
+\contentsline {paragraph}{Contention is uncontrolled.}{37}{paragraph*.43}%
+\contentsline {paragraph}{One corpus.}{37}{paragraph*.44}%
+\contentsline {paragraph}{Single-node scope.}{37}{paragraph*.45}%
+\contentsline {paragraph}{The classifier is a rule set.}{37}{paragraph*.46}%
+\contentsline {section}{\numberline {8.2}Future work}{37}{section.8.2}%
+\contentsline {paragraph}{Decode offload.}{37}{paragraph*.47}%
+\contentsline {paragraph}{Cross-job coordination.}{38}{paragraph*.48}%
+\contentsline {paragraph}{Online rather than one-shot adaptation.}{38}{paragraph*.49}%
+\contentsline {paragraph}{Revisiting the accuracy question.}{38}{paragraph*.50}%
+\contentsline {paragraph}{Beyond archaeology.}{38}{paragraph*.51}%
+\contentsline {chapter}{Bibliography}{38}{paragraph*.51}%
+\contentsline {chapter}{\numberline {A}Reproduction of the Reference Configuration}{41}{appendix.A}%
+\contentsline {section}{\numberline {A.1}Environment}{41}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Faithfulness of the port}{41}{section.A.2}%
+\contentsline {section}{\numberline {A.3}Result and the batch-size constraint}{42}{section.A.3}%
+\contentsline {paragraph}{Consequence for this thesis.}{42}{paragraph*.53}%
+\contentsline {section}{\numberline {A.4}Metric reduction}{42}{section.A.4}%
+\contentsline {section}{\numberline {A.5}Error structure}{42}{section.A.5}%
+\contentsline {chapter}{\numberline {B}Pipeline Defects Identified During Reproduction}{44}{appendix.B}%
+\contentsline {section}{\numberline {B.1}Defects affecting the staging mechanism}{44}{section.B.1}%
+\contentsline {subsection}{\numberline {B.1.1}Policy selected after the datasets it selects were constructed}{44}{subsection.B.1.1}%
+\contentsline {subsection}{\numberline {B.1.2}No archive the shard reader could open}{44}{subsection.B.1.2}%
+\contentsline {subsection}{\numberline {B.1.3}Staging silently degraded to a plain read}{45}{subsection.B.1.3}%
+\contentsline {section}{\numberline {B.2}Defects affecting segmentation accuracy}{45}{section.B.2}%
+\contentsline {section}{\numberline {B.3}Defects affecting reproducibility and operations}{46}{section.B.3}%
+\contentsline {section}{\numberline {B.4}Implication for prior results}{46}{section.B.4}%

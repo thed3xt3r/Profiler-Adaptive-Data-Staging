@@ -1,0 +1,23 @@
+# Local Windows + NVIDIA GPU requirements for PADS
+#
+# torch/torchvision come from the CUDA wheel index, NOT PyPI. Install them first:
+#   .venv\Scripts\python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+# then:
+#   .venv\Scripts\python.exe -m pip install -r requirements-local.txt
+#
+# Versions are floated forward from requirements.txt (the HPC pins target
+# Python 3.8/CUDA 11.7 and have no cp312 wheels).
+
+lightning>=2.4,<3
+segmentation-models-pytorch>=0.4.0
+torchmetrics>=1.4
+albumentations==1.4.24
+transformers>=4.44
+optuna>=3.6
+optuna-integration[pytorch_lightning]>=3.6
+numpy>=1.26,<3
+Pillow>=10
+matplotlib>=3.8
+scikit-learn>=1.4
+tensorboard
+tqdm

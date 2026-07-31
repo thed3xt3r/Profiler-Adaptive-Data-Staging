@@ -1,0 +1,110 @@
+This is BibTeX, Version 0.99d
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: article.aux
+Reallocating 'name_of_file' (item size: 1) to 12 items.
+The style file: sn-mathphys.bst
+Reallocating 'name_of_file' (item size: 1) to 11 items.
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Database file #1: references.bib
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--"{Proc." isn't a brace-balanced string for entry Huang12_search
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Huang12_search
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Huang12_search
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"(SIGIR)}" isn't a brace-balanced string for entry Huang12_search
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Arapakis16_dds
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Arapakis16_dds
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Arapakis16_dds
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"(SIGIR)}" isn't a brace-balanced string for entry Arapakis16_dds
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Liu15_opinions
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Liu15_opinions
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Liu15_opinions
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"(SIGIR)}" isn't a brace-balanced string for entry Liu15_opinions
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Guo08_query
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Guo08_query
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Guo08_query
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"(SIGIR)}" isn't a brace-balanced string for entry Guo08_query
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Guo10_buy
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Guo10_buy
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"{Proc." isn't a brace-balanced string for entry Guo10_buy
+while executing--line 2823 of file sn-mathphys.bst
+Warning--"(SIGIR)}" isn't a brace-balanced string for entry Guo10_buy
+while executing--line 2823 of file sn-mathphys.bst
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+You've used 74 entries,
+            7385 wiz_defined-function locations,
+            1574 strings with 22835 characters,
+and the built_in function-call counts, 2876764 in all, are:
+= -- 566482
+> -- 1827
+< -- 413
++ -- 374181
+- -- 989
+* -- 46230
+:= -- 486484
+add.period$ -- 76
+call.type$ -- 74
+change.case$ -- 840
+chr.to.int$ -- 813
+cite$ -- 74
+duplicate$ -- 2436
+empty$ -- 15008
+format.name$ -- 1811
+if$ -- 756217
+int.to.chr$ -- 3
+int.to.str$ -- 146
+missing$ -- 0
+newline$ -- 989
+num.names$ -- 302
+pop$ -- 1900
+preamble$ -- 1
+purify$ -- 367
+quote$ -- 0
+skip$ -- 352361
+stack$ -- 0
+substring$ -- 257577
+swap$ -- 1039
+text.length$ -- 1420
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 3076
+warning$ -- 0
+while$ -- 2487
+width$ -- 0
+write$ -- 1141
+(There were 20 warnings)

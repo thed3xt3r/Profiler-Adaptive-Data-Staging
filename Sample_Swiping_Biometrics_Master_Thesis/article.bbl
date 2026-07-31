@@ -1,0 +1,1043 @@
+%% BioMed_Central_Bib_Style_v1.01
+
+\begin{thebibliography}{74}
+% BibTex style file: bmc-mathphys.bst (version 2.1), 2014-07-24
+\ifx \bisbn   \undefined \def \bisbn  #1{ISBN #1}\fi
+\ifx \binits  \undefined \def \binits#1{#1}\fi
+\ifx \bauthor  \undefined \def \bauthor#1{#1}\fi
+\ifx \batitle  \undefined \def \batitle#1{#1}\fi
+\ifx \bjtitle  \undefined \def \bjtitle#1{#1}\fi
+\ifx \bvolume  \undefined \def \bvolume#1{\textbf{#1}}\fi
+\ifx \byear  \undefined \def \byear#1{#1}\fi
+\ifx \bissue  \undefined \def \bissue#1{#1}\fi
+\ifx \bfpage  \undefined \def \bfpage#1{#1}\fi
+\ifx \blpage  \undefined \def \blpage #1{#1}\fi
+\ifx \burl  \undefined \def \burl#1{\textsf{#1}}\fi
+\ifx \doiurl  \undefined \def \doiurl#1{\url{https://doi.org/#1}}\fi
+\ifx \betal  \undefined \def \betal{\textit{et al.}}\fi
+\ifx \binstitute  \undefined \def \binstitute#1{#1}\fi
+\ifx \binstitutionaled  \undefined \def \binstitutionaled#1{#1}\fi
+\ifx \bctitle  \undefined \def \bctitle#1{#1}\fi
+\ifx \beditor  \undefined \def \beditor#1{#1}\fi
+\ifx \bpublisher  \undefined \def \bpublisher#1{#1}\fi
+\ifx \bbtitle  \undefined \def \bbtitle#1{#1}\fi
+\ifx \bedition  \undefined \def \bedition#1{#1}\fi
+\ifx \bseriesno  \undefined \def \bseriesno#1{#1}\fi
+\ifx \blocation  \undefined \def \blocation#1{#1}\fi
+\ifx \bsertitle  \undefined \def \bsertitle#1{#1}\fi
+\ifx \bsnm \undefined \def \bsnm#1{#1}\fi
+\ifx \bsuffix \undefined \def \bsuffix#1{#1}\fi
+\ifx \bparticle \undefined \def \bparticle#1{#1}\fi
+\ifx \barticle \undefined \def \barticle#1{#1}\fi
+\bibcommenthead
+\ifx \bconfdate \undefined \def \bconfdate #1{#1}\fi
+\ifx \botherref \undefined \def \botherref #1{#1}\fi
+\ifx \url \undefined \def \url#1{\textsf{#1}}\fi
+\ifx \bchapter \undefined \def \bchapter#1{#1}\fi
+\ifx \bbook \undefined \def \bbook#1{#1}\fi
+\ifx \bcomment \undefined \def \bcomment#1{#1}\fi
+\ifx \oauthor \undefined \def \oauthor#1{#1}\fi
+\ifx \citeauthoryear \undefined \def \citeauthoryear#1{#1}\fi
+\ifx \endbibitem  \undefined \def \endbibitem {}\fi
+\ifx \bconflocation  \undefined \def \bconflocation#1{#1}\fi
+\ifx \arxivurl  \undefined \def \arxivurl#1{\textsf{#1}}\fi
+\csname PreBibitemsHook\endcsname
+
+%%% 1
+\bibitem{Reyal2015}
+\begin{bchapter}
+\bauthor{\bsnm{Reyal}, \binits{S.}},
+\bauthor{\bsnm{Zhai}, \binits{S.}},
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}}:
+\bctitle{Performance and user experience of touchscreen and gesture keyboards
+  in a lab setting and in the wild}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{679}--\blpage{688}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+%%% 2
+\bibitem{Palin19}
+\begin{bchapter}
+\bauthor{\bsnm{Palin}, \binits{K.}},
+\bauthor{\bsnm{Feit}, \binits{A.M.}},
+\bauthor{\bsnm{Kim}, \binits{S.}},
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}},
+\bauthor{\bsnm{Oulasvirta}, \binits{A.}}:
+\bctitle{How do people type on mobile devices? observations from a study with
+  37,000 volunteers}.
+In: \bbtitle{Proc. Intl. Conf. on Human-computer Interaction with Mobile
+  Devices and Services (MobileHCI)},
+pp. \bfpage{1}--\blpage{12}
+(\byear{2019})
+\end{bchapter}
+\endbibitem
+
+%%% 3
+\bibitem{Quinn18}
+\begin{botherref}
+\oauthor{\bsnm{Quinn}, \binits{P.}},
+\oauthor{\bsnm{Zhai}, \binits{S.}}:
+Modeling gesture-typing movements.
+Hum.-Comput. Interact.
+\textbf{33}(3)
+(2018)
+\end{botherref}
+\endbibitem
+
+%%% 4
+\bibitem{Leiva21_swipe}
+\begin{bchapter}
+\bauthor{\bsnm{Leiva}, \binits{L.A.}},
+\bauthor{\bsnm{Kim}, \binits{S.}},
+\bauthor{\bsnm{Cui}, \binits{W.}},
+\bauthor{\bsnm{Bi}, \binits{X.}},
+\bauthor{\bsnm{Oulasvirta}, \binits{A.}}:
+\bctitle{How we swipe: A large-scale shape-writing dataset and empirical
+  findings}.
+In: \bbtitle{Proc. Intl. Conf. on Human-computer Interaction with Mobile
+  Devices and Services (MobileHCI)}
+(\byear{2021})
+\end{bchapter}
+\endbibitem
+
+%%% 5
+\bibitem{Buschek18}
+\begin{bchapter}
+\bauthor{\bsnm{Buschek}, \binits{D.}},
+\bauthor{\bsnm{Bisinger}, \binits{B.}},
+\bauthor{\bsnm{Alt}, \binits{F.}}:
+\bctitle{{ResearchIME}: A mobile keyboard application for studying free typing
+  behaviour in the wild}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1}--\blpage{14}
+(\byear{2018})
+\end{bchapter}
+\endbibitem
+
+%%% 6
+\bibitem{Henze12}
+\begin{bchapter}
+\bauthor{\bsnm{Henze}, \binits{N.}},
+\bauthor{\bsnm{Rukzio}, \binits{E.}},
+\bauthor{\bsnm{Boll}, \binits{S.}}:
+\bctitle{Observational and experimental investigation of typing behaviour using
+  virtual keyboards for mobile devices}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{2659}--\blpage{2668}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 7
+\bibitem{Dhakal18}
+\begin{bchapter}
+\bauthor{\bsnm{Dhakal}, \binits{V.}},
+\bauthor{\bsnm{Feit}, \binits{A.M.}},
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}},
+\bauthor{\bsnm{Oulasvirta}, \binits{A.}}:
+\bctitle{Observations on typing from 136 million keystrokes}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1}--\blpage{12}
+(\byear{2018})
+\end{bchapter}
+\endbibitem
+
+%%% 8
+\bibitem{Zhai03}
+\begin{bchapter}
+\bauthor{\bsnm{Zhai}, \binits{S.}},
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}}:
+\bctitle{Shorthand writing on stylus keyboard}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{97}--\blpage{104}
+(\byear{2003})
+\end{bchapter}
+\endbibitem
+
+%%% 9
+\bibitem{Markussen:2014:VMW}
+\begin{bchapter}
+\bauthor{\bsnm{Markussen}, \binits{A.}},
+\bauthor{\bsnm{Jakobsen}, \binits{M.R.}},
+\bauthor{\bsnm{Hornb{\ae}k}, \binits{K.}}:
+\bctitle{Vulture: A mid-air word-gesture keyboard}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1073}--\blpage{1082}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 10
+\bibitem{zhu2019sfree}
+\begin{bchapter}
+\bauthor{\bsnm{Zhu}, \binits{S.}},
+\bauthor{\bsnm{Zheng}, \binits{J.}},
+\bauthor{\bsnm{Zhai}, \binits{S.}},
+\bauthor{\bsnm{Bi}, \binits{X.}}:
+\bctitle{{i'sFree}: Eyes-free gesture typing via a touch-enabled remote
+  control}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1}--\blpage{12}
+(\byear{2019})
+\end{bchapter}
+\endbibitem
+
+%%% 11
+\bibitem{gupta2019rotoswype}
+\begin{bchapter}
+\bauthor{\bsnm{Gupta}, \binits{A.}},
+\bauthor{\bsnm{Ji}, \binits{C.}},
+\bauthor{\bsnm{Yeo}, \binits{H.-S.}},
+\bauthor{\bsnm{Quigley}, \binits{A.}},
+\bauthor{\bsnm{Vogel}, \binits{D.}}:
+\bctitle{{RotoSwype}: Word-gesture typing using a ring}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1}--\blpage{12}
+(\byear{2019})
+\end{bchapter}
+\endbibitem
+
+%%% 12
+\bibitem{yeo2017investigating}
+\begin{bchapter}
+\bauthor{\bsnm{Yeo}, \binits{H.-S.}},
+\bauthor{\bsnm{Phang}, \binits{X.-S.}},
+\bauthor{\bsnm{Castellucci}, \binits{S.J.}},
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}},
+\bauthor{\bsnm{Quigley}, \binits{A.}}:
+\bctitle{Investigating tilt-based gesture keyboard entry for single-handed text
+  entry on large devices}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{4194}--\blpage{4202}
+(\byear{2017})
+\end{bchapter}
+\endbibitem
+
+%%% 13
+\bibitem{kristensson2007command}
+\begin{bchapter}
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}},
+\bauthor{\bsnm{Zhai}, \binits{S.}}:
+\bctitle{Command strokes with and without preview: using pen gestures on
+  keyboard for command selection}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1137}--\blpage{1146}
+(\byear{2007})
+\end{bchapter}
+\endbibitem
+
+%%% 14
+\bibitem{alvina2017commandboard}
+\begin{bchapter}
+\bauthor{\bsnm{Alvina}, \binits{J.}},
+\bauthor{\bsnm{Griggio}, \binits{C.F.}},
+\bauthor{\bsnm{Bi}, \binits{X.}},
+\bauthor{\bsnm{Mackay}, \binits{W.E.}}:
+\bctitle{{CommandBoard}: Creating a general-purpose command gesture input space
+  for soft keyboard}.
+In: \bbtitle{Proc. ACM Symposium on User Interface Software Technology (UIST)},
+pp. \bfpage{17}--\blpage{28}
+(\byear{2017})
+\end{bchapter}
+\endbibitem
+
+%%% 15
+\bibitem{cui2019hotstrokes}
+\begin{bchapter}
+\bauthor{\bsnm{Cui}, \binits{W.}},
+\bauthor{\bsnm{Zheng}, \binits{J.}},
+\bauthor{\bsnm{Lewis}, \binits{B.}},
+\bauthor{\bsnm{Vogel}, \binits{D.}},
+\bauthor{\bsnm{Bi}, \binits{X.}}:
+\bctitle{{HotStrokes}: Word-gesture shortcuts on a trackpad}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)},
+pp. \bfpage{1}--\blpage{13}
+(\byear{2019})
+\end{bchapter}
+\endbibitem
+
+%%% 16
+\bibitem{Starov_2016}
+\begin{bchapter}
+\bauthor{\bsnm{Starov}, \binits{O.}},
+\bauthor{\bsnm{Gill}, \binits{P.}},
+\bauthor{\bsnm{Nikiforakis}, \binits{N.}}:
+\bctitle{Are you sure you want to contact us? quantifying the leakage of {PII}
+  via website contact forms}.
+In: \bbtitle{Proc. PoPETs}
+(\byear{2016})
+\end{bchapter}
+\endbibitem
+
+%%% 17
+\bibitem{Leung_2016}
+\begin{bchapter}
+\bauthor{\bsnm{Leung}, \binits{C.}},
+\bauthor{\bsnm{Ren}, \binits{J.}},
+\bauthor{\bsnm{Choffnes}, \binits{D.}},
+\bauthor{\bsnm{Wilson}, \binits{C.}}:
+\bctitle{Should you use the app for that? comparing the privacy implications of
+  app- and web-based online services}.
+In: \bbtitle{Proc. Internet Measurements Conference (IMC)}
+(\byear{2016})
+\end{bchapter}
+\endbibitem
+
+%%% 18
+\bibitem{Leiva20_biometrics}
+\begin{bchapter}
+\bauthor{\bsnm{Leiva}, \binits{L.A.}},
+\bauthor{\bsnm{Diaz}, \binits{M.}},
+\bauthor{\bsnm{Ferrer}, \binits{M.A.}},
+\bauthor{\bsnm{Plamondon}, \binits{R.}}:
+\bctitle{Human or machine? it is not what you write, but how you write it}.
+In: \bbtitle{Proceedings of the Intl. Conf. on Pattern Recognition (ICPR)}
+(\byear{2020})
+\end{bchapter}
+\endbibitem
+
+%%% 19
+\bibitem{Leiva21_privacy}
+\begin{bchapter}
+\bauthor{\bsnm{Leiva}, \binits{L.A.}},
+\bauthor{\bsnm{Arapakis}, \binits{I.}},
+\bauthor{\bsnm{Iordanou}, \binits{C.}}:
+\bctitle{My mouse, my rules: Privacy issues of behavioral user profiling via
+  mouse tracking}.
+In: \bbtitle{Proceedings of ACM SIGIR Conference on Human Information
+  Interaction and Retrieval (CHIIR)}
+(\byear{2021})
+\end{bchapter}
+\endbibitem
+
+%%% 20
+\bibitem{White18}
+\begin{botherref}
+\oauthor{\bsnm{White}, \binits{R.W.}},
+\oauthor{\bsnm{Doraiswamy}, \binits{P.M.}},
+\oauthor{\bsnm{Horvitz}, \binits{E.}}:
+Detecting neurodegenerative disorders from web search signals.
+npj Digital Med.
+\textbf{1}(8)
+(2018)
+\end{botherref}
+\endbibitem
+
+%%% 21
+\bibitem{Gajos20}
+\begin{botherref}
+\oauthor{\bsnm{Gajos}, \binits{K.Z.}},
+\oauthor{\bsnm{Reinecke}, \binits{K.}},
+\oauthor{\bsnm{Donovan}, \binits{M.}},
+\oauthor{\bsnm{Stephen}, \binits{C.D.}},
+\oauthor{\bsnm{Hung}, \binits{A.Y.}},
+\oauthor{\bsnm{Schmahmann}, \binits{J.D.}},
+\oauthor{\bsnm{Gupta}, \binits{A.S.}}:
+Computer mouse use captures ataxia and parkinsonism, enabling accurate
+  measurement and detection.
+Mov. Disord.
+\textbf{35}(2)
+(2020)
+\end{botherref}
+\endbibitem
+
+%%% 22
+\bibitem{Chen_2001}
+\begin{bchapter}
+\bauthor{\bsnm{Chen}, \binits{M.C.}},
+\bauthor{\bsnm{Anderson}, \binits{J.R.}},
+\bauthor{\bsnm{Sohn}, \binits{M.H.}}:
+\bctitle{What can a mouse cursor tell us more? correlation of eye/mouse
+  movements on web browsing}.
+In: \bbtitle{Proc. Extended Abstracts on Human Factors in Computing Systems
+  (CHI EA)}
+(\byear{2001})
+\end{bchapter}
+\endbibitem
+
+%%% 23
+\bibitem{Mueller01_cheese}
+\begin{bchapter}
+\bauthor{\bsnm{Mueller}, \binits{F.}},
+\bauthor{\bsnm{Lockerd}, \binits{A.}}:
+\bctitle{Cheese: Tracking mouse movement activity on websites, a tool for user
+  modeling}.
+In: \bbtitle{Proc. Extended Abstracts on Human Factors in Computing Systems
+  (CHI EA)}
+(\byear{2001})
+\end{bchapter}
+\endbibitem
+
+%%% 24
+\bibitem{Huang12_search}
+\begin{bchapter}
+\bauthor{\bsnm{Huang}, \binits{J.}},
+\bauthor{\bsnm{White}, \binits{R.W.}},
+\bauthor{\bsnm{Buscher}, \binits{G.}},
+\bauthor{\bsnm{Wang}, \binits{K.}}:
+\bctitle{Improving searcher models using mouse cursor activity}.
+In: \bbtitle{{Proc. Intl. ACM SIGIR Conf. on Research and Development in
+  Information Retrieval (SIGIR)}}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 25
+\bibitem{Huang12_align}
+\begin{bchapter}
+\bauthor{\bsnm{Huang}, \binits{J.}},
+\bauthor{\bsnm{White}, \binits{R.}},
+\bauthor{\bsnm{Buscher}, \binits{G.}}:
+\bctitle{User see, user point: Gaze and cursor alignment in web search}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 26
+\bibitem{Navalpakkam13_layout}
+\begin{bchapter}
+\bauthor{\bsnm{Navalpakkam}, \binits{V.}},
+\bauthor{\bsnm{Jentzsch}, \binits{L.}},
+\bauthor{\bsnm{Sayres}, \binits{R.}},
+\bauthor{\bsnm{Ravi}, \binits{S.}},
+\bauthor{\bsnm{Ahmed}, \binits{A.}},
+\bauthor{\bsnm{Smola}, \binits{A.}}:
+\bctitle{Measurement and modeling of eye-mouse behavior in the presence of
+  nonlinear page layouts}.
+In: \bbtitle{Proc. The Web Conference (WWW)}
+(\byear{2013})
+\end{bchapter}
+\endbibitem
+
+%%% 27
+\bibitem{Arapakis16_dds}
+\begin{bchapter}
+\bauthor{\bsnm{Arapakis}, \binits{I.}},
+\bauthor{\bsnm{Leiva}, \binits{L.A.}}:
+\bctitle{Predicting user engagement with direct displays using mouse cursor
+  information}.
+In: \bbtitle{{Proc. Intl. ACM SIGIR Conf. on Research and Development in
+  Information Retrieval (SIGIR)}}
+(\byear{2016})
+\end{bchapter}
+\endbibitem
+
+%%% 28
+\bibitem{Chen17_satisfaction}
+\begin{botherref}
+\oauthor{\bsnm{Chen}, \binits{Y.}},
+\oauthor{\bsnm{Liu}, \binits{Y.}},
+\oauthor{\bsnm{Zhang}, \binits{M.}},
+\oauthor{\bsnm{Ma}, \binits{S.}}:
+User satisfaction prediction with mouse movement information in heterogeneous
+  search environment.
+IEEE Trans. Knowl. Data. Eng.
+\textbf{29}(11)
+(2017)
+\end{botherref}
+\endbibitem
+
+%%% 29
+\bibitem{Liu15_opinions}
+\begin{bchapter}
+\bauthor{\bsnm{Liu}, \binits{Y.}},
+\bauthor{\bsnm{Chen}, \binits{Y.}},
+\bauthor{\bsnm{Tang}, \binits{J.}},
+\bauthor{\bsnm{Sun}, \binits{J.}},
+\bauthor{\bsnm{Zhang}, \binits{M.}},
+\bauthor{\bsnm{Ma}, \binits{S.}},
+\bauthor{\bsnm{Zhu}, \binits{X.}}:
+\bctitle{Different users, different opinions: Predicting search satisfaction
+  with mouse movement information}.
+In: \bbtitle{{Proc. Intl. ACM SIGIR Conf. on Research and Development in
+  Information Retrieval (SIGIR)}}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+%%% 30
+\bibitem{Arroyo06_usab}
+\begin{bchapter}
+\bauthor{\bsnm{Arroyo}, \binits{E.}},
+\bauthor{\bsnm{Selker}, \binits{T.}},
+\bauthor{\bsnm{Wei}, \binits{W.}}:
+\bctitle{Usability tool for analysis of web designs using mouse tracks}.
+In: \bbtitle{Proc. Extended Abstracts on Human Factors in Computing Systems
+  (CHI EA)}
+(\byear{2006})
+\end{bchapter}
+\endbibitem
+
+%%% 31
+\bibitem{Atterer06_move}
+\begin{bchapter}
+\bauthor{\bsnm{Atterer}, \binits{R.}},
+\bauthor{\bsnm{Wnuk}, \binits{M.}},
+\bauthor{\bsnm{Schmidt}, \binits{A.}}:
+\bctitle{Knowing the user's every move: User activity tracking for website
+  usability evaluation and implicit interaction}.
+In: \bbtitle{Proc. The Web Conference (WWW)}
+(\byear{2006})
+\end{bchapter}
+\endbibitem
+
+%%% 32
+\bibitem{Leiva11_adapt}
+\begin{bchapter}
+\bauthor{\bsnm{Leiva}, \binits{L.A.}}:
+\bctitle{Restyling website design via touch-based interactions}.
+In: \bbtitle{Proc. Intl. Conf. on Human-computer Interaction with Mobile
+  Devices and Services (MobileHCI)}
+(\byear{2011})
+\end{bchapter}
+\endbibitem
+
+%%% 33
+\bibitem{Kratky18_biom}
+\begin{botherref}
+\oauthor{\bsnm{Kr\'{a}tky}, \binits{P.}},
+\oauthor{\bsnm{Chud\'{a}}, \binits{D.}}:
+Recognition of web users with the aid of biometric user model.
+J. Intell. Inf. Syst.
+\textbf{51}(3)
+(2018)
+\end{botherref}
+\endbibitem
+
+%%% 34
+\bibitem{Lu17_biom}
+\begin{bchapter}
+\bauthor{\bsnm{Lu}, \binits{H.}},
+\bauthor{\bsnm{Rose}, \binits{J.}},
+\bauthor{\bsnm{Liu}, \binits{Y.}},
+\bauthor{\bsnm{Awad}, \binits{A.}},
+\bauthor{\bsnm{Hou}, \binits{L.}}:
+\bctitle{Combining mouse and eye movement biometrics for user authentication}.
+In: \beditor{\bsnm{Traoré}, \binits{I.}},
+\beditor{\bsnm{Awad}, \binits{A.}},
+\beditor{\bsnm{Woungang}, \binits{I.}} (eds.)
+\bbtitle{Information Security Practices}.
+\bpublisher{Springer}, \blocation{???}
+(\byear{2017})
+\end{bchapter}
+\endbibitem
+
+%%% 35
+\bibitem{Claypool01_iii}
+\begin{bchapter}
+\bauthor{\bsnm{Claypool}, \binits{M.}},
+\bauthor{\bsnm{Le}, \binits{P.}},
+\bauthor{\bsnm{Wased}, \binits{M.}},
+\bauthor{\bsnm{Brown}, \binits{D.}}:
+\bctitle{Implicit interest indicators}.
+In: \bbtitle{Proc. Intelligent User Interfaces (IUI)}
+(\byear{2001})
+\end{bchapter}
+\endbibitem
+
+%%% 36
+\bibitem{Shapira06_ii}
+\begin{bchapter}
+\bauthor{\bsnm{Shapira}, \binits{B.}},
+\bauthor{\bsnm{Taieb-Maimon}, \binits{M.}},
+\bauthor{\bsnm{Moskowitz}, \binits{A.}}:
+\bctitle{Study of the usefulness of known and new implicit indicators and their
+  optimal combination for accurate inference of users interests}.
+In: \bbtitle{Proc. Symposium on Applied Computing (SAC)}
+(\byear{2006})
+\end{bchapter}
+\endbibitem
+
+%%% 37
+\bibitem{Guo08_query}
+\begin{bchapter}
+\bauthor{\bsnm{Guo}, \binits{Q.}},
+\bauthor{\bsnm{Agichtein}, \binits{E.}}:
+\bctitle{Exploring mouse movements for inferring query intent}.
+In: \bbtitle{{Proc. Intl. ACM SIGIR Conf. on Research and Development in
+  Information Retrieval (SIGIR)}}
+(\byear{2008})
+\end{bchapter}
+\endbibitem
+
+%%% 38
+\bibitem{Guo10_buy}
+\begin{bchapter}
+\bauthor{\bsnm{Guo}, \binits{Q.}},
+\bauthor{\bsnm{Agichtein}, \binits{E.}}:
+\bctitle{Ready to buy or just browsing? detecting web searcher goals from
+  interaction data}.
+In: \bbtitle{{Proc. Intl. ACM SIGIR Conf. on Research and Development in
+  Information Retrieval (SIGIR)}}
+(\byear{2010})
+\end{bchapter}
+\endbibitem
+
+%%% 39
+\bibitem{Guo12_success}
+\begin{bchapter}
+\bauthor{\bsnm{Guo}, \binits{Q.}},
+\bauthor{\bsnm{Lagun}, \binits{D.}},
+\bauthor{\bsnm{Agichtein}, \binits{E.}}:
+\bctitle{Predicting web search success with fine-grained interaction data}.
+In: \bbtitle{Proc. Intl. Conf. on Information and Knowledge Management (CIKM)}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 40
+\bibitem{Huang11_clicks}
+\begin{bchapter}
+\bauthor{\bsnm{Huang}, \binits{J.}},
+\bauthor{\bsnm{White}, \binits{R.W.}},
+\bauthor{\bsnm{Dumais}, \binits{S.}}:
+\bctitle{No clicks, no problem: Using cursor movements to understand and
+  improve search}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)}
+(\byear{2011})
+\end{bchapter}
+\endbibitem
+
+%%% 41
+\bibitem{Guo12_rel}
+\begin{bchapter}
+\bauthor{\bsnm{Guo}, \binits{Q.}},
+\bauthor{\bsnm{Agichtein}, \binits{E.}}:
+\bctitle{Beyond dwell time: Estimating document relevance from cursor movements
+  and other post-click searcher behavior}.
+In: \bbtitle{Proc. The Web Conference (WWW)}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 42
+\bibitem{Speicher13_rel}
+\begin{bchapter}
+\bauthor{\bsnm{Speicher}, \binits{M.}},
+\bauthor{\bsnm{Both}, \binits{A.}},
+\bauthor{\bsnm{Gaedke}, \binits{M.}}:
+\bctitle{{TellMyRelevance}! predicting the relevance of web search results from
+  cursor interactions}.
+In: \bbtitle{Proc. Intl. Conf. on Information and Knowledge Management (CIKM)}
+(\byear{2013})
+\end{bchapter}
+\endbibitem
+
+%%% 43
+\bibitem{Diriye12_leaving}
+\begin{bchapter}
+\bauthor{\bsnm{Diriye}, \binits{A.}},
+\bauthor{\bsnm{White}, \binits{R.}},
+\bauthor{\bsnm{Buscher}, \binits{G.}},
+\bauthor{\bsnm{Dumais}, \binits{S.}}:
+\bctitle{Leaving so soon? understanding and predicting web search abandonment
+  rationales}.
+In: \bbtitle{Proc. Intl. Conf. on Information and Knowledge Management (CIKM)}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 44
+\bibitem{Arapakis14_news}
+\begin{botherref}
+\oauthor{\bsnm{Arapakis}, \binits{I.}},
+\oauthor{\bsnm{Lalmas}, \binits{M.}},
+\oauthor{\bsnm{Cambazoglu}, \binits{B.B.}},
+\oauthor{\bsnm{Marcos}, \binits{M.-C.}},
+\oauthor{\bsnm{Jose}, \binits{J.M.}}:
+User engagement in online news: Under the scope of sentiment, interest, affect,
+  and gaze.
+J. Assoc. Inf. Sci. Technol.
+\textbf{65}(10)
+(2014)
+\end{botherref}
+\endbibitem
+
+%%% 45
+\bibitem{Arapakis14_gestures}
+\begin{bchapter}
+\bauthor{\bsnm{Arapakis}, \binits{I.}},
+\bauthor{\bsnm{Lalmas}, \binits{M.}},
+\bauthor{\bsnm{Valkanas}, \binits{G.}}:
+\bctitle{Understanding within-content engagement through pattern analysis of
+  mouse gestures}.
+In: \bbtitle{Proc. Intl. Conf. on Information and Knowledge Management (CIKM)}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 46
+\bibitem{Hauger11}
+\begin{bchapter}
+\bauthor{\bsnm{Hauger}, \binits{D.}},
+\bauthor{\bsnm{Paramythis}, \binits{A.}},
+\bauthor{\bsnm{Weibelzahl}, \binits{S.}}:
+\bctitle{Using browser interaction data to determine page reading behavior}.
+In: \bbtitle{Proc. UMAP}
+(\byear{2011})
+\end{bchapter}
+\endbibitem
+
+%%% 47
+\bibitem{Lagun14_motifs}
+\begin{bchapter}
+\bauthor{\bsnm{Lagun}, \binits{D.}},
+\bauthor{\bsnm{Ageev}, \binits{M.}},
+\bauthor{\bsnm{Guo}, \binits{Q.}},
+\bauthor{\bsnm{Agichtein}, \binits{E.}}:
+\bctitle{Discovering common motifs in cursor movement data for improving web
+  search}.
+In: \bbtitle{Proc. ACM Conf. on Web Search and Data Mining (WSDM)}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 48
+\bibitem{Boi2016}
+\begin{botherref}
+\oauthor{\bsnm{Boi}, \binits{P.}},
+\oauthor{\bsnm{Fenu}, \binits{G.}},
+\oauthor{\bsnm{Spano}, \binits{L.D.}},
+\oauthor{\bsnm{Vargiu}, \binits{V.}}:
+Reconstructing user's attention on the web through mouse movements and
+  perception-based content identification.
+ACM Trans. Appl. Percept.
+\textbf{13}(3)
+(2016)
+\end{botherref}
+\endbibitem
+
+%%% 49
+\bibitem{Arapakis20_ppa}
+\begin{botherref}
+\oauthor{\bsnm{Arapakis}, \binits{I.}},
+\oauthor{\bsnm{Penta}, \binits{A.}},
+\oauthor{\bsnm{Joho}, \binits{H.}},
+\oauthor{\bsnm{Leiva}, \binits{L.A.}}:
+A price-per-attention auction scheme using mouse cursor information.
+ACM Trans. Inf. Syst.
+\textbf{38}(2)
+(2020)
+\end{botherref}
+\endbibitem
+
+%%% 50
+\bibitem{Accot97_fitts}
+\begin{bchapter}
+\bauthor{\bsnm{Accot}, \binits{J.}},
+\bauthor{\bsnm{Zhai}, \binits{S.}}:
+\bctitle{Beyond fitts' law: Models for trajectory-based {HCI} tasks}.
+In: \bbtitle{Proc. SIGCHI Conf. on Human Factors in Computing Systems (CHI)}
+(\byear{1997})
+\end{bchapter}
+\endbibitem
+
+%%% 51
+\bibitem{Card87_mouse}
+\begin{bchapter}
+\bauthor{\bsnm{Card}, \binits{S.K.}},
+\bauthor{\bsnm{English}, \binits{W.K.}},
+\bauthor{\bsnm{Burr}, \binits{B.J.}}:
+\bctitle{Evaluation of mouse, rate-controlled isometric joystick, step keys,
+  and text keys, for text selection on a {CRT}}.
+In: \beditor{\bsnm{Baecker}, \binits{R.M.}},
+\beditor{\bsnm{Buxton}, \binits{W.A.S.}} (eds.)
+\bbtitle{Human-computer Interaction}.
+\bpublisher{Taylor \& Francis}, \blocation{???}
+(\byear{1987})
+\end{bchapter}
+\endbibitem
+
+%%% 52
+\bibitem{Zimmermann2003}
+\begin{botherref}
+\oauthor{\bsnm{Zimmermann}, \binits{P.}},
+\oauthor{\bsnm{Guttormsen}, \binits{S.}},
+\oauthor{\bsnm{Danuser}, \binits{B.}},
+\oauthor{\bsnm{Gomez}, \binits{P.}}:
+Affective computing -- a rationale for measuring mood with mouse and keyboard.
+Int. J. Occup. Saf. Ergon.
+\textbf{9}
+(2003)
+\end{botherref}
+\endbibitem
+
+%%% 53
+\bibitem{Kaklauskas2009}
+\begin{bchapter}
+\bauthor{\bsnm{{Kaklauskas}}, \binits{A.}},
+\bauthor{\bsnm{{Krutinis}}, \binits{M.}},
+\bauthor{\bsnm{{Seniut}}, \binits{M.}}:
+\bctitle{Biometric mouse intelligent system for student's emotional and
+  examination process analysis}.
+In: \bbtitle{Proc. ICALT}
+(\byear{2009})
+\end{bchapter}
+\endbibitem
+
+%%% 54
+\bibitem{Azcarraga12_brain}
+\begin{bchapter}
+\bauthor{\bsnm{Azcarraga}, \binits{J.}},
+\bauthor{\bsnm{Suarez}, \binits{M.T.}}:
+\bctitle{Predicting academic emotions based on brainwaves, mouse behaviour and
+  personality profile}.
+In: \bbtitle{Proc. PRICAI}
+(\byear{2012})
+\end{bchapter}
+\endbibitem
+
+%%% 55
+\bibitem{Yamauchi13_anxiety}
+\begin{bchapter}
+\bauthor{\bsnm{Yamauchi}, \binits{T.}}:
+\bctitle{Mouse trajectories and state anxiety: Feature selection with random
+  forest}.
+In: \bbtitle{Proc. ACII}
+(\byear{2013})
+\end{bchapter}
+\endbibitem
+
+%%% 56
+\bibitem{Kapoor07_frustration}
+\begin{botherref}
+\oauthor{\bsnm{Kapoor}, \binits{A.}},
+\oauthor{\bsnm{Burleson}, \binits{W.}},
+\oauthor{\bsnm{Picard}, \binits{R.W.}}:
+Automatic prediction of frustration.
+Int. J. Hum.-Comput. Stud.
+\textbf{65}(8)
+(2007)
+\end{botherref}
+\endbibitem
+
+%%% 57
+\bibitem{Yamauchi2014}
+\begin{bchapter}
+\bauthor{\bsnm{{Yamauchi}}, \binits{T.}},
+\bauthor{\bsnm{{Bowman}}, \binits{C.}}:
+\bctitle{Mining cursor motions to find the gender, experience, and feelings of
+  computer users}.
+In: \bbtitle{Proc. ICDMW}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 58
+\bibitem{Kratky16_demographics}
+\begin{bchapter}
+\bauthor{\bsnm{Kratky}, \binits{P.}},
+\bauthor{\bsnm{Chuda}, \binits{D.}}:
+\bctitle{Estimating gender and age of web page visitors from the way they use
+  their mouse}.
+In: \bbtitle{Proc. WWW Companion}
+(\byear{2016})
+\end{bchapter}
+\endbibitem
+
+%%% 59
+\bibitem{Pentel2017}
+\begin{bchapter}
+\bauthor{\bsnm{Pentel}, \binits{A.}}:
+\bctitle{Predicting age and gender by keystroke dynamics and mouse patterns}.
+In: \bbtitle{Adj. Proc. UMAP}
+(\byear{2017})
+\end{bchapter}
+\endbibitem
+
+%%% 60
+\bibitem{Vertanen11_enron}
+\begin{bchapter}
+\bauthor{\bsnm{Vertanen}, \binits{K.}},
+\bauthor{\bsnm{Kristensson}, \binits{P.O.}}:
+\bctitle{A versatile dataset for text entry evaluations based on genuine mobile
+  emails}.
+In: \bbtitle{Proc. Intl. Conf. on Human-computer Interaction with Mobile
+  Devices and Services (MobileHCI)},
+pp. \bfpage{295}--\blpage{298}
+(\byear{2011})
+\end{bchapter}
+\endbibitem
+
+%%% 61
+\bibitem{Sutskever14}
+\begin{bchapter}
+\bauthor{\bsnm{Sutskever}, \binits{I.}},
+\bauthor{\bsnm{Vinyals}, \binits{O.}},
+\bauthor{\bsnm{Le}, \binits{Q.V.}}:
+\bctitle{Sequence to sequence learning with neural networks}.
+In: \bbtitle{Proc. NeurIPS}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 62
+\bibitem{Du18}
+\begin{botherref}
+\oauthor{\bsnm{Du}, \binits{W.}},
+\oauthor{\bsnm{Wang}, \binits{Y.}},
+\oauthor{\bsnm{Qiao}, \binits{Y.}}:
+Recurrent spatial-temporal attention network for action recognition in videos.
+IEEE Trans. Image Process.
+\textbf{27}(3)
+(2018)
+\end{botherref}
+\endbibitem
+
+%%% 63
+\bibitem{Mao15}
+\begin{bchapter}
+\bauthor{\bsnm{Mao}, \binits{J.}},
+\bauthor{\bsnm{Xu}, \binits{W.}},
+\bauthor{\bsnm{Yang}, \binits{Y.}},
+\bauthor{\bsnm{Wang}, \binits{J.}},
+\bauthor{\bsnm{Huang}, \binits{Z.}},
+\bauthor{\bsnm{Yuille}, \binits{A.}}:
+\bctitle{Deep captioning with multimodal recurrent neural networks ({m-RNN})}.
+In: \bbtitle{Proc. ICLR}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+%%% 64
+\bibitem{Hochreiter97_lstm}
+\begin{botherref}
+\oauthor{\bsnm{Hochreiter}, \binits{S.}},
+\oauthor{\bsnm{Schmidhuber}, \binits{J.}}:
+Long short-term memory.
+Neural Comput.
+\textbf{9}(8)
+(1997)
+\end{botherref}
+\endbibitem
+
+%%% 65
+\bibitem{Cho14_gru}
+\begin{bchapter}
+\bauthor{\bsnm{Cho}, \binits{K.}},
+\bauthor{\bparticle{van} \bsnm{Merrienboer}, \binits{B.}},
+\bauthor{\bsnm{Gulcehre}, \binits{C.}},
+\bauthor{\bsnm{Bougares}, \binits{F.}},
+\bauthor{\bsnm{Schwenk}, \binits{H.}},
+\bauthor{\bsnm{Bengio}, \binits{Y.}}:
+\bctitle{Learning phrase representations using {RNN} encoder-decoder for
+  statistical machine translation}.
+In: \bbtitle{Proc. EMNLP}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 66
+\bibitem{Jozefowicz15}
+\begin{bchapter}
+\bauthor{\bsnm{Jozefowicz}, \binits{R.}},
+\bauthor{\bsnm{Zaremba}, \binits{W.}},
+\bauthor{\bsnm{Sutskever}, \binits{I.}}:
+\bctitle{An empirical exploration of recurrent network architectures}.
+In: \bbtitle{Proc. ICML}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+%%% 67
+\bibitem{Chung14}
+\begin{bchapter}
+\bauthor{\bsnm{Chung}, \binits{J.}},
+\bauthor{\bsnm{Gulcehre}, \binits{C.}},
+\bauthor{\bsnm{Cho}, \binits{K.}},
+\bauthor{\bsnm{Bengio}, \binits{Y.}}:
+\bctitle{Empirical evaluation of gated recurrent neural networks on sequence
+  modeling}.
+In: \bbtitle{NeurIPS Workshops}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 68
+\bibitem{Dey17}
+\begin{bchapter}
+\bauthor{\bsnm{Dey}, \binits{R.}},
+\bauthor{\bsnm{Salemt}, \binits{F.M.}}:
+\bctitle{Gate-variants of gated recurrent unit ({GRU}) neural networks}.
+In: \bbtitle{Proc. MWSCAS}
+(\byear{2017})
+\end{bchapter}
+\endbibitem
+
+%%% 69
+\bibitem{Adam}
+\begin{bchapter}
+\bauthor{\bsnm{D.P.Kingma}},
+\bauthor{\bsnm{Ba}, \binits{J.L.}}:
+\bctitle{Adam: A method for stochastic optimization}.
+In: \bbtitle{Proc. ICLR}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+%%% 70
+\bibitem{Ranganath14}
+\begin{bchapter}
+\bauthor{\bsnm{Ranganath}, \binits{R.}},
+\bauthor{\bsnm{Gerrish}, \binits{S.}},
+\bauthor{\bsnm{Blei}, \binits{D.M.}}:
+\bctitle{Black box variational inference}.
+In: \bbtitle{Proc. AISTATS}
+(\byear{2014})
+\end{bchapter}
+\endbibitem
+
+%%% 71
+\bibitem{Powers11}
+\begin{botherref}
+\oauthor{\bsnm{Powers}, \binits{D.M.W.}}:
+Evaluation: from {Precision}, {Recall} and {F-measure} to {ROC}, informedness,
+  markedness and correlation.
+J. Mach. Learn. Technol.
+\textbf{2}(1)
+(2011)
+\end{botherref}
+\endbibitem
+
+%%% 72
+\bibitem{Smith1999}
+\begin{botherref}
+\oauthor{\bsnm{Smith}, \binits{M.W.}},
+\oauthor{\bsnm{Sharit}, \binits{J.}},
+\oauthor{\bsnm{Czaja}, \binits{S.J.}}:
+Aging, motor control, and the performance of computer mouse tasks.
+Hum. Factors
+\textbf{41}(3)
+(1999)
+\end{botherref}
+\endbibitem
+
+%%% 73
+\bibitem{Bahdanau15}
+\begin{bchapter}
+\bauthor{\bsnm{Bahdanau}, \binits{D.}},
+\bauthor{\bsnm{Cho}, \binits{K.}},
+\bauthor{\bsnm{Bengio}, \binits{Y.}}:
+\bctitle{Neural machine translation by jointly learning to align and
+  translate}.
+In: \bbtitle{Proc. ICLR}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+%%% 74
+\bibitem{Luong15}
+\begin{bchapter}
+\bauthor{\bsnm{Luong}, \binits{M.-T.}},
+\bauthor{\bsnm{Pham}, \binits{H.}},
+\bauthor{\bsnm{Manning}, \binits{C.D.}}:
+\bctitle{Effective approaches to attention-based neural machine translation}.
+In: \bbtitle{Proc. EMNLP}
+(\byear{2015})
+\end{bchapter}
+\endbibitem
+
+\end{thebibliography}

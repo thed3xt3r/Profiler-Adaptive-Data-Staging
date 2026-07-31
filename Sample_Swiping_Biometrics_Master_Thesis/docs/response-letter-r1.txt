@@ -1,0 +1,115 @@
+Dear Editor and Reviewers,
+
+We thank you for the timely and insightful feedback provided. In the following we describe how we have addressed the raised issues and, as a consequence, have revised our manuscript accordingly. We have used orange font color to highlight the incorporated changes.
+
+
+=== Reviewer #2 ===
+
+> I would rather see fewer targets with a more balanced data set. The balance here is one factor I find most difficult to get past. Given the number of target classes, there are 1152 possible combinations, not all of which may be represented, and are certainly not represented equally.
+
+Thanks for the suggestion. We have mentioned this exercise as future work in Section 5. We believe it is more fundamental and necessary to study the original swiping dataset in a systematic way, in order to get a more realistic estimate of the performance of our models.
+
+> They do not consider any interactions, such as gender and age, and do not adjust for these. So how about limiting the dataset to RH females? You mention that the dataset is skewed towards this group.
+
+This is very interesting, many thanks again for the suggestion. We have mentioned it in Section 5, where we discuss the limitations and future work.
+
+> Page 8 says 61% are non-US, but Pg 19 states that the majority are young female RH US citizens, so I wonder even more about the specific data distribution.
+
+Actually, the group of “young female right-handed participants” are mostly from the US. Since the “US” bit in that sentence (on page 19) was confusing, we have removed it.
+
+> Continuing with the 39% who are US citizens, how do we know their primarily spoken language is English?  It might be, say, Spanish if they got citizenship as adults.  So perhaps a more important identifier is "what language do you speak primarily?"
+
+We mentioned in Section 3.1 that language is “browser language”. According to the public dataset we analyzed, the primary language of participants was automatically inferred from their browser: it was assumed that their browser would be in the language they were most comfortable with. Please see reference [4] for more details.
+
+> As for nationality, why is a non-US citizen using a standard English phone and keyboard?
+
+This was a requirement for the data collection. As mentioned in Section 3.1, all participants used the same JavaScript-based virtual QWERTY soft keyboard. Please see reference [4] for more details.
+
+> Did all the other nationalities use the same alphabet?
+
+Yes, since the soft keyboard was the same for all participants [4].
+
+> Why were non-English speakers writing in English?  Friends of mine who are not native to the US often use a keyboard & language that fits better with their spoken language.
+
+Because the prompted phrases were all in English [4]. We should remark that we did not collect the “How We Swipe” dataset. It was released in 2020 for benchmarking mobile-based studies.
+
+> Does typing on an English keyboard if you are writing, say, Greek, slow you down?
+
+This is an interesting question. Unfortunately, we do not have such an insight. We may refer to the work of Franco-Salvador et al. [2018] where they reported that, on average, Russian has more words per phrase and German has more letters per word than other Indo-European languages. Please see https://www.sciencedirect.com/science/article/pii/S1071581918300399
+
+> Would the device be an important variable in speed?  Blackberry vs iPhone vs iPad?  Type of device, age of device, software version (latter versions guess the word).
+
+The “How We Swipe” paper [4] reported that iPhone participants were a bit faster than Android participants, and hypothesized that it would be attributed to the device’s screen (retina vs. non-retina displays).
+
+> Pg 11, line 60.  Was this data randomly assigned to these sets, or was the data balanced on a characteristic?
+
+We have clarified in Section 3.4 that the data splits were randomly created.
+
+> Did every problem use the same data sets?  Or did you balance on target classes within a dataset when testing that target?  I know you state on page 12 that the class distributions are imbalanced for most of the targets.
+
+Yes, each model was trained on the very same data partitions. We have clarified it in Section 3.4.
+
+> Are reported results just on the validation set?  How well did the models do on the training set?
+
+All results are reported on the test set, as usual in Machine Learning experiments. We have clarified in Section 3.4 that the testing partition is held out exclusively for model evaluation, as it represents unseen data and is therefore a more challenging but also a more realistic scenario.
+
+> Were the models robust or was there falloff?
+
+Our experiments show that each target has a preferred model (see Table 1), however the 2-layered bidirectional LSTM or GRU model with 100 units was the most frequent winning architecture. So we can conclude that this model architecture is the most general one overall. Since we already mentioned in Section 6 that the 2-layered bidirectional LSTM or GRU model was preferred, we have added there the number of preferred hidden units as well.
+
+> When you report model accuracy, what data set are you referring to?
+
+We always refer to the same dataset (How We Swipe) and always the testing partition (a random 20% split of the dataset). We have clarified it in Section 3.4.
+
+> For each model, could you show the classification matrix for each so we can see how many were classified as each category by the model?  This helps understand the model accuracy when the data is not balanced.  For example, your data set is 69% female and is 68.5% accurate in predicting gender.  A classification matrix would show us whether your model is just predicting most users are female.
+
+We have included the confusion matrices for each of the models shown in Table 1. We also have added a new paragraph discussing the results. Indeed, the confusion matrices show that the models were unable to properly predict three (out of eight) targets: gender, dominant hand, and swiping finger. In those cases, the models tended to predict the majority class.
+
+> Title: Should be What More Can a Swiped Word Tell Us?  Not:  What Can a Swiped Word Tell Us More?
+
+The title is actually a homage to the seminal paper “What can a mouse cursor tell us more” [22], therefore we want to keep it as it is.
+
+> Pg 6, line 58:  the dataset URL should not have a / at the end.  As they have typed it, it does not go anywhere.
+
+We have just tested the link as it appears in the PDF and confirm that it works.
+
+
+=== Reviewer #3 ===
+
+> I think the "both hands" cannot be combined with "left hand" in swipe hand level because the characteristics of "both hands" is very different from "left hand".
+
+Agreed. However, as explained on page 8, eventually we ended up with a binary classification task in that case: “right hand” vs “other hand”. This was so due to overcoming the class imbalance issue that appears when considering 3 classes: 74% “right hand”, 21% “both hands”, and 5% “left hand”.
+
+> What is Gi in equation (3)? Is it Gu ?
+
+Gi refers to the input gate of the LSTM cell. Actually Gu is wrong in (6), as it should be Gi. We have corrected this typo in the revised version. Please note that Gu only applies to GRU cells.
+
+> Give a full terminology for M and SD in the line 55 of the page 12 ( first paragraph of the section 3.4).
+
+Done.
+
+> The AUC value should be over the 50% at least. 50% means that the classifier has no ability to differentiate between two class. However, some AUC in the figure 5 shows under the 50%. Is this correct?
+
+We observed this behavior only when predicting nationality (Fig. 8d) and with LR > 10-3. This means that the models were underfitted, i.e. they did not learn properly. This is in fact attributed to the high learning rates. Please see a follow-up discussion in this regard about the Robbins-Monro condition, directed at Reviewer #4 below.
+
+
+=== Reviewer #4 ===
+
+> The model could be modified with Attention mechanism, so that 'more affective learning process could be achieved.  This can be considered as a future work.
+
+Many thanks for the suggestion. Indeed, we have mentioned it in Section 5, where we discuss the limitations and future work.
+
+> It is mentioned that low learning rate makes training process slow. But you have demonstrated your experiments with low learning rate only.
+
+As reported in Section 3.4.1, we experimented with learning rates 10−1, 10−2, 10−3, 10−4 and 10−5, 5 variations in total. A learning rate higher than 10−1 (i.e. 0.1) is unlikely to work because of the Robbins-Monro condition [Ranganath, 2014]. Moreover, when LR > 1, stochastic gradient descent is not guaranteed to converge to a minimum. We have cited [Ranganath, 2014] in the revised version of the manuscript to better justify our choice of LR, in Section 3.4.1.
+
+* R. Ranganath et al. Black Box Variational Inference. In Proc. AISTATS, 2014.
+
+---
+
+In conclusion, we would like to thank reviewers for their many useful comments and suggestions, which we have used to improve our manuscript. We believe that the current revision is stronger as a result, and we are confident that it will represent an excellent contribution to the NCAA journal.
+
+We look forward to hearing from you.
+
+Sincerely,
+The authors

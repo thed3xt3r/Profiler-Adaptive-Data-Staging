@@ -1,0 +1,207 @@
+%% ============================================================================
+\chapter{Results}
+\label{ch:results}
+\addcontentsline{lot}{chapter}{Results}
+%% ============================================================================
+
+%% ---------------------------------------------------------------------------
+%% SCAFFOLD. The structure, the contrasts and the reporting conventions are
+%% fixed here so that the experiments have a defined target. Every numeric claim
+%% is marked \PLACEHOLDER until the corresponding cluster run has completed.
+%% Do NOT populate these tables from the workstation environment: see
+%% Appendix A, Section A.3 for why those numbers are not comparable.
+%% ---------------------------------------------------------------------------
+
+This chapter reports the evaluation described in
+Section~\ref{sec:evaluation-plan}.
+Section~\ref{sec:res-rq1} establishes when the loader is the bottleneck (RQ1);
+Sections~\ref{sec:res-rq2}--\ref{sec:res-rq4} address sharding, predictive staging
+and prefetch-depth auto-tuning in turn.
+Section~\ref{sec:res-accuracy} verifies the accuracy constraint.
+
+All figures are reported as mean $\pm$ standard deviation over
+\PLACEHOLDER{$n$} repeats, since measurements on a shared filesystem are
+non-stationary and a single run is not evidence.
+
+\section{RQ1: When does the DataLoader become the bottleneck?}
+\label{sec:res-rq1}
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{llccccc}
+\toprule
+Architecture & Loader & \Tdata{} & \Tdecode{} & \Thtod{} & \Tgpu{} & GPU util.\ (\%) \\
+\midrule
+SegFormer   & default & & & & & \\
+SegFormer   & tuned   & & & & & \\
+MA-Net      & default & & & & & \\
+MA-Net      & tuned   & & & & & \\
+DeepLabV3+  & default & & & & & \\
+DeepLabV3+  & tuned   & & & & & \\
+\bottomrule
+\end{tabular}
+\caption{Per-stage timing breakdown across architectures and loader
+configurations. \PLACEHOLDER{populate from cluster profiling runs}}
+\label{tab:rq1-breakdown}
+\end{table}
+
+The prediction under test is directional and stated in advance: SegFormer, having
+the lowest \Tgpu{} of the three architectures
+(Table~\ref{tab:baseline-default}), should be the configuration in which the
+loader bottleneck appears first, because a model that computes quickly spends
+proportionally more of its step waiting.
+DeepLabV3+, the heaviest, should be the configuration in which staging buys least.
+If the ordering does not hold, the framing of this thesis is wrong and should be
+reported as such.
+
+\PLACEHOLDER{narrative: does the predicted ordering hold?}
+
+\section{RQ2: Do tar shards reduce many-small-file overhead?}
+\label{sec:res-rq2}
+
+The direct measure is filesystem operation counts, not wall-clock: sharding is
+intended to convert many small metadata operations into few large sequential
+reads, and that intent is verifiable independently of whether it happens to pay off
+in this configuration.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Method & \code{open} calls & \code{stat} calls & Bytes read \\
+\midrule
+1. Baseline loose      & & & \\
+3. WebDataset (shards) & & & \\
+5. \pads{}             & & & \\
+\bottomrule
+\end{tabular}
+\caption{Filesystem operations issued against GPFS per epoch.
+\PLACEHOLDER{populate}}
+\label{tab:rq2-fsops}
+\end{table}
+
+\PLACEHOLDER{narrative: operation-count reduction, and whether it translates into
+wall-clock benefit}
+
+A negative result here is publishable and should be reported as such: if operation
+counts fall substantially but throughput does not, the conclusion is that metadata
+overhead was not the binding constraint on this system, which is itself an answer
+to RQ1.
+
+\section{RQ3: Does predictive staging outperform fixed streaming?}
+\label{sec:res-rq3}
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lccccc}
+\toprule
+Method & Throughput (samples/s) & GPU util.\ (\%) & s/epoch & IoU & $\Delta$ vs.\ ref. \\
+\midrule
+1. Baseline \code{DataLoader}     & & & & & \\
+2. Tuned \code{DataLoader}        & & & & & \\
+3. WebDataset                     & & & & & \\
+4. Full pre-stage (ceiling)       & & & & & \\
+5. \pads{}                        & & & & & \\
+\bottomrule
+\end{tabular}
+\caption{End-to-end comparison. Method 2 is the bar \pads{} must clear;
+method 4 is the ceiling. \PLACEHOLDER{populate}}
+\label{tab:rq3-endtoend}
+\end{table}
+
+Two comparisons carry the argument.
+Against method~2 --- \pads{} must beat a competently hand-tuned loader, not merely
+the naive default, or the contribution is a tuning guide rather than a system.
+Against method~4 --- if manually pre-staging the whole corpus matches \pads{}, then
+adaptivity bought nothing \emph{for this dataset}, and the honest conclusion is that
+the contribution reduces to ``the dataset fits in scratch''.
+The defence in that case is not that the result is otherwise, but that \pads{}
+reaches the ceiling without being told scratch is the answer, and continues to
+function when the corpus does not fit --- which Chapter~\ref{ch:ablation} probes
+directly by constraining scratch capacity.
+
+\PLACEHOLDER{narrative}
+
+\section{RQ4: Can prefetch depth be auto-tuned?}
+\label{sec:res-rq4}
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Prefetch depth $d$ & Throughput (samples/s) & Peak scratch (GB) \\
+\midrule
+1 (fixed)    & & \\
+2 (fixed)    & & \\
+4 (fixed)    & & \\
+8 (fixed)    & & \\
+\pads{} (auto-tuned, $d = $ \PLACEHOLDER{}) & & \\
+\bottomrule
+\end{tabular}
+\caption{Fixed prefetch depths against the auto-tuned depth.
+\PLACEHOLDER{populate}}
+\label{tab:rq4-depth}
+\end{table}
+
+The claim is falsifiable in a specific way: the auto-tuned depth should land at or
+near the best fixed depth \emph{without having been told it}.
+If the swept optimum is materially better than the derived depth, the derivation in
+Section~\ref{ch:methodology} is mis-specified and should be revised rather than
+defended.
+
+\PLACEHOLDER{narrative}
+
+\section{Profiling overhead}
+
+The warm-up window is a cost, and reporting throughput gains without it would
+overstate the result.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lcc}
+\toprule
+ & Absolute (s) & \% of total run \\
+\midrule
+Warm-up profiling window   & & \\
+Archive construction (one-off, offline) & & \\
+Net benefit after overhead & & \\
+\bottomrule
+\end{tabular}
+\caption{Cost of adaptation. \PLACEHOLDER{populate}}
+\label{tab:overhead}
+\end{table}
+
+\section{Accuracy is preserved}
+\label{sec:res-accuracy}
+
+\pads{} is only useful if it accelerates the pipeline without degrading
+segmentation quality.
+The relevant threshold is stated in advance: any IoU deviation exceeding the
+$\pm 0.5$ percentage point standard deviation of the reference results
+(Table~\ref{tab:casini-reference}) is a regression to be explained, not noise.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Method & IoU (per-image, all tiles) & $\Delta$ vs.\ baseline & Within tolerance? \\
+\midrule
+1. Baseline & & --- & --- \\
+3. WebDataset & & & \\
+5. \pads{} & & & \\
+\bottomrule
+\end{tabular}
+\caption{Segmentation quality under each data path. Reduction convention as
+Section~\ref{sec:repro-metric}. \PLACEHOLDER{populate}}
+\label{tab:accuracy-preserved}
+\end{table}
+
+One mechanism deserves specific attention rather than a summary statistic.
+Shard-based reading approximates exact random shuffling by shuffling shard order and
+maintaining a sample buffer; reduced shuffling randomness is a plausible route by
+which a throughput optimisation could quietly degrade the model.
+The comparison in Table~\ref{tab:accuracy-preserved} is therefore not merely a
+sanity check but a test of that specific hypothesis, and
+Section~\ref{sec:ablation-shuffle} varies the buffer size to probe it.
+
+\PLACEHOLDER{narrative}

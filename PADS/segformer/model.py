@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
 import lightning.pytorch as pl
+import segmentation_models_pytorch as smp
+from torch.nn import BCEWithLogitsLoss
 from torchmetrics import Accuracy, JaccardIndex
 from transformers import SegformerForSemanticSegmentation
 
@@ -50,8 +52,28 @@ class ArcheoModel(pl.LightningModule):
         )
 
         # --- Loss function ---
-        from torch.nn import BCEWithLogitsLoss
-        self.loss_fn = BCEWithLogitsLoss()
+        # This used to hardcode BCEWithLogitsLoss and ignore config["loss"]
+        # entirely, so the run logged 'loss: focal' while actually training on
+        # unweighted BCE. On ~12%-positive data that biases hard toward
+        # background, and it silently made segformer incomparable to
+        # manet/deeplab, which do use focal. Honour the config like they do.
+        if config["loss"] == "jaccard":
+            self.loss_fn = smp.losses.JaccardLoss(smp.losses.BINARY_MODE, from_logits=True)
+        elif config["loss"] == "dice":
+            self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        elif config["loss"] == "focal":
+            self.loss_fn = smp.losses.FocalLoss(
+                mode=smp.losses.BINARY_MODE,
+                alpha=config.get("focal_alpha", 0.75),
+                gamma=config.get("focal_gamma", 2.0),
+            )
+        elif config["loss"] == "bce":
+            self.loss_fn = BCEWithLogitsLoss()
+        else:
+            raise ValueError(
+                f"Unknown loss {config['loss']!r}; expected one of "
+                "jaccard, dice, focal, bce."
+            )
 
         # --- Metrics ---
         metric_kwargs = dict(task="binary", threshold=0.5)
@@ -63,6 +85,10 @@ class ArcheoModel(pl.LightningModule):
         self.test_acc = Accuracy(**metric_kwargs)
 
     def forward(self, image):
+        # NOTE: no /255 here on purpose. Unlike the manet/deeplab pipelines,
+        # segformer's dataset._finalize() already rescales to [0, 1] before the
+        # tensor reaches us, so the ImageNet statistics below are applied to
+        # correctly-scaled input. Adding a rescale here would divide twice.
         image = (image - self.mean) / self.std
         outputs = self.model(pixel_values=image)
         logits = outputs.logits  # shape: (B, out_classes, H/4, W/4)

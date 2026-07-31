@@ -23,7 +23,15 @@ class ArcheoModel(pl.LightningModule):
         elif config["loss"] == "dice":
             self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
         elif config["loss"] == "focal":
-            self.loss_fn = smp.losses.FocalLoss(mode=smp.losses.BINARY_MODE)
+            # alpha weights the positive class. smp defaults to alpha=None (no
+            # weighting), but only ~12% of pixels are sites (median 7%), so the
+            # unweighted loss lets the model coast on predicting background.
+            # The reference implementation uses 0.75; keep it configurable.
+            self.loss_fn = smp.losses.FocalLoss(
+                mode=smp.losses.BINARY_MODE,
+                alpha=config.get("focal_alpha", 0.75),
+                gamma=config.get("focal_gamma", 2.0),
+            )
 
         # Metrics — binary, threshold 0.5
         metric_kwargs = dict(task="binary", threshold=0.5)
@@ -37,6 +45,12 @@ class ArcheoModel(pl.LightningModule):
         self.test_acc = Accuracy(**metric_kwargs)
 
     def forward(self, image):
+        # ToTensorV2 only reorders HWC->CHW; unlike torchvision's ToTensor it does
+        # NOT divide by 255, and this pipeline has no A.Normalize. Without the
+        # rescale below, 0-255 data was standardised with smp's ImageNet stats
+        # (input_range [0,1]), landing the encoder input around [118, 1136]
+        # instead of [-2.2, 2.7] and making the pretrained weights useless.
+        image = image.float() / 255.0
         image = (image - self.mean) / self.std
         mask = self.model(image)
         return mask

@@ -1,0 +1,352 @@
+%% ============================================================================
+\chapter{Materials and Datasets}
+\label{ch:materials}
+\addcontentsline{lot}{chapter}{Materials and Datasets}
+%% ============================================================================
+
+\section{Overview}
+
+This chapter describes the data and the model architectures used throughout the
+thesis.
+The experimental subject is a semantic segmentation workload over satellite imagery
+of the southern Mesopotamian floodplain, and the object of study is the data
+pipeline that feeds that workload on a shared HPC filesystem.
+The dataset is therefore treated in two distinct ways: as a machine learning
+dataset, characterised by its imagery, class balance and evaluation metrics
+(Section~\ref{sec:dataset}); and as an I/O workload, characterised by file count,
+file size distribution and access pattern (Section~\ref{sec:io-workload}).
+The second characterisation is the one that motivates \pads{}, and it is the one
+usually left implicit in the segmentation literature.
+
+\section{Dataset: Casini et al. (2023)}
+\label{sec:dataset}
+
+The main experiments use the dataset introduced by Casini et al.~\cite{Casini23},
+which addresses semantic segmentation and detection of mounded archaeological sites
+--- tells --- across the southern Mesopotamian floodplain in Iraq.
+
+\subsection{Provenance and construction}
+
+The dataset originates from a corpus of geo-referenced vector shapes corresponding
+to the contours of known mound sites within the survey area of the Floodplains
+Project, spanning approximately 66{,}000~km\textsuperscript{2}.
+The vector corpus was assembled at the University of Bologna by consolidating all
+published archaeological surveys in the region and geo-referencing the sites
+catalogued therein; it contains 4{,}934 shapes, each corresponding to a site
+confirmed by ground-truthing and by study of the associated surface scatter of
+artefacts.
+
+Because the corpus was compiled as an archaeological reference rather than as a
+training set, the authors applied two filtering passes before image generation:
+
+\begin{enumerate}
+  \item \textbf{Removal of the 200 largest sites by area.}
+    These exceed the area of the square input region and would therefore yield an
+    almost entirely positive segmentation mask, providing no usable learning signal.
+    Visual inspection confirmed that they follow the shape of extended areas rather
+    than of simple mounds.
+  \item \textbf{Removal of 684 sites} that were either too small to be a tell or
+    marked as destroyed.
+    The size threshold was set at roughly 1{,}000~m\textsuperscript{2},
+    corresponding to a circle of 30~m diameter.
+    Sites below this threshold typically correspond to generic annotations for known
+    sites of unknown size or imprecise location.
+\end{enumerate}
+
+Image generation was performed in QGIS.
+For each retained site, a Python script exported a square of side $L$ centred on the
+site centroid containing only Bing Maps satellite imagery, accessed through the
+QuickMapService plugin.
+The same square was exported a second time without the base map but with the site
+contour rendered as a solid filled shape, giving the corresponding binary
+ground-truth mask.
+The task is therefore binary: one class for mounded sites, one for everything else.
+
+Two spatial configurations were produced: $L = 1000$~m (``1k'') and $L = 2000$~m
+(``2k'').
+Imagery was exported at approximately 1 pixel per metre --- 1024~px for 1000~m, and
+double that for the larger extent --- and subsequently downscaled by a factor of two
+to reduce computational cost, which the original authors report as having low impact
+on accuracy.
+At training time a square of side $L/2$ is randomly cropped from the exported tile;
+this both prevents the model from learning a positional prior in which sites always
+appear at the image centre, and acts as data augmentation.
+Further augmentation consists of random rotation, mirroring, and small shifts in
+brightness and contrast, resampled at each training iteration.
+
+Finally, 1{,}155 images with empty masks --- containing no site to predict --- were
+added, sampled from locations proposed by the archaeologists: highly urbanised
+areas, intensive agriculture, flood-prone terrain such as artificial lakes and
+basins, and rocky hills and mountains.
+These negatives are what force the model to learn what a tell is \emph{not}.
+The final dataset consists of 5{,}025 image/mask pairs, split 90\% training /
+10\% held-out test, stratified over the empty images, with a further 10\% of the
+training partition randomly reserved as a validation set.
+
+A CORONA-augmented variant also exists, in which declassified historical satellite
+imagery is imported into QGIS and cropped identically to the Bing tiles, giving a
+second input channel group.
+Because CORONA was used only as a complement in the original work, sites destroyed
+after the 1970s were excluded from that analysis.
+
+\paragraph{Dataset variant used in this thesis.}
+All experiments reported here use the Bing 1k configuration unless otherwise stated.
+This choice is deliberate: the 1k configuration is the smallest of the published
+variants and therefore the least favourable to a data-staging argument --- a
+pipeline that is I/O-bound on 1k tiles will be at least as I/O-bound on 2k tiles or
+on the CORONA-augmented input.
+Chapter~\ref{ch:ablation} revisits the larger input configurations.
+
+\subsection{Class imbalance}
+
+The segmentation target is severely imbalanced: mound pixels constitute a small
+minority of any given tile, and 1{,}155 of the 5{,}025 tiles contain no positive
+pixels at all.
+Direct measurement over the corpus used here gives a mean positive-pixel fraction of
+approximately 9.6\% per site-bearing tile, with a median near 7\%.
+The masks themselves are cleanly binary --- 90.4\% of mask pixels take the
+background value and 8.8\% the foreground value, with only 0.7\% at intermediate
+values --- so label ambiguity at object boundaries is not a material source of error.
+
+This imbalance is the reason the original work adopts focal loss~\cite{Lin17} over
+Dice loss, and the reason the primary reported metric is IoU rather than pixel
+accuracy.
+It is also, importantly for this thesis, the reason the workload is decode-heavy
+relative to its useful signal: a substantial fraction of the bytes read from the
+filesystem contribute nothing but negative pixels.
+
+\subsection{Evaluation metrics}
+
+The original paper evaluates using intersection-over-union at the pixel level, and
+accuracy, precision, recall and the Matthews correlation coefficient at the
+site-detection level:
+%
+\begin{align}
+  \text{IoU} &= \frac{|P \cap G|}{|P \cup G|} \\[4pt]
+  \text{Accuracy} &= \frac{TP + TN}{TP + TN + FP + FN} \\[4pt]
+  \text{Recall} = \frac{TP}{TP + FN}, \quad
+  &\text{Precision} = \frac{TP}{TP + FP} \\[4pt]
+  \text{MCC} &= \frac{TP \times TN - FP \times FN}
+                    {\sqrt{(TP+FP)(TP+FN)(TN+FP)(TN+FN)}}
+\end{align}
+%
+where $P$ denotes the predicted shape and $G$ the ground-truth shape.
+
+The distinction between the two levels matters.
+IoU measures how well a predicted contour overlaps an annotated one; it does not
+measure how many sites were found.
+The original authors note that IoU can improve while detection accuracy degrades, as
+occurs between their Model~5 and Model~6: a more conservative model produces fewer
+positive predictions, shrinking the union term and raising IoU, while missing sites
+and lowering recall.
+
+\paragraph{Reduction convention.}
+A subtlety that materially affects reported numbers is how per-image scores are
+aggregated.
+The reference implementation reports
+\code{smp.metrics.iou\_score(..., reduction="macro-imagewise")}: IoU is computed per
+image and then averaged, with the library's convention that an empty ground truth
+correctly predicted empty scores $1.0$.
+This differs from a globally pooled IoU, in which true positives, false positives
+and false negatives are summed across the whole set before the ratio is taken.
+On the same trained model the two conventions differ by several percentage points,
+with the per-image reduction the higher of the two because the empty tiles
+contribute perfect scores.
+All comparisons in this thesis therefore state which reduction is used.
+Section~\ref{sec:repro-metric} quantifies the difference.
+
+\subsection{Reference results}
+
+Casini et al. report the IoU scores in Table~\ref{tab:casini-reference} on the
+held-out test set.
+Standard deviations arise from repeated testing to average out the random crop,
+which is applied at test time as well as during training.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{llccc}
+\toprule
+Model & Input & Filter & IoU (\%) & Std.\ dev \\
+\midrule
+Model 1 & Bing 1k          &            & 74.17 & 0.38 \\
+Model 2 & Bing 1k          & \checkmark & 78.10 & 0.54 \\
+Model 3 & Bing + CORONA 1k &            & 74.06 & 0.39 \\
+Model 4 & Bing 2k          &            & 79.77 & 0.34 \\
+Model 5 & Bing 2k          & \checkmark & 81.54 & 0.35 \\
+Model 6 & Bing + CORONA 2k & \checkmark & 83.45 & 0.18 \\
+\bottomrule
+\end{tabular}
+\caption{IoU scores reported by Casini et al.~\cite{Casini23} for their
+experimental configurations.}
+\label{tab:casini-reference}
+\end{table}
+
+At the detection level, Model~5 achieves 62.57\% accuracy under automatic evaluation
+and 80.40\% after human-in-the-loop adjustment for mislabelled (no-longer-visible)
+sites; Model~6 achieves 60.08\% and 79.13\% respectively.
+Their configuration search compared U-Net against MA-Net, ResNet-18 against
+EfficientNet-B3, and Dice loss against focal loss, settling on
+MA-Net + EfficientNet-B3 + focal loss trained for 20 epochs as the best
+configuration; they observe that the differences between configurations were small,
+within a few percentage points, and plausibly attributable to fluctuation from the
+random augmentation.
+
+These figures serve two purposes here.
+First, they establish an accuracy floor: any optimisation to the data pipeline
+proposed in this thesis must be shown not to degrade segmentation quality relative
+to this reference.
+Second, the observation that architectural choice moves IoU by only a few points
+motivates the framing of this work --- if the model is not where the remaining
+headroom is, the pipeline may be.
+
+\section{The dataset as an I/O workload}
+\label{sec:io-workload}
+
+The above is the standard description of the dataset.
+For the purposes of this thesis a second description is required, because the
+property of the dataset that \pads{} responds to is not its class balance but its
+file layout.
+
+The Bing 1k dataset consists of 5{,}025 image files and 5{,}025 corresponding mask
+files stored as individual objects on the shared GPFS filesystem.
+Each training step therefore issues, per sample, an independent
+\code{open}/\code{stat}/\code{read}/\code{close} sequence against a parallel
+filesystem that is optimised for large sequential transfers rather than for
+many-small-file metadata operations.
+The relevant properties are:
+
+\begin{description}
+  \item[Many small files.] Metadata cost per sample is close to constant regardless
+    of how few bytes are actually read, so per-file overhead does not amortise.
+  \item[Paired access.] Every image read is accompanied by a mask read at a
+    different path, doubling the metadata traffic per sample.
+  \item[Shared contention.] GPFS is a shared resource; observed read latency is not
+    a property of the dataset alone but of concurrent jobs on the cluster, and is
+    therefore non-stationary across a run.
+  \item[Deterministic access order.] Once the epoch permutation is fixed, the
+    sequence of samples --- and hence of files --- is known in advance.
+    Future data access is predictable, which is precisely the precondition that
+    makes proactive prefetching and shard staging exact rather than speculative.
+\end{description}
+
+The final point is the hinge of the entire method.
+The dataset is small enough to fit on node-local scratch and its access pattern is
+known ahead of time; the fact that the baseline pipeline nonetheless leaves the GPU
+idle is a property of the loader, not of the data.
+
+\section{Models}
+
+Three segmentation architectures are used, spanning a CNN encoder--decoder, an
+attention-augmented CNN, and a transformer.
+All three were trained under an identical data pipeline so that pipeline effects can
+be isolated from architectural effects.
+
+\subsection{MA-Net}
+
+MA-Net (Multi-scale Attention Network)~\cite{Fan20} extends the U-Net
+encoder--decoder with a self-attention mechanism inserted in the latent space,
+allowing the network to weight latent features according to content.
+Originally developed for liver and tumour segmentation in medical imaging, it has
+since been applied to remote sensing.
+It is included here because it is the architecture selected as best-performing by
+Casini et al., and therefore constitutes the reproduction baseline for this thesis.
+Implementation: \code{segmentation\_models\_pytorch}~\cite{Iakubovskii19} with an
+EfficientNet-B3~\cite{Tan19} encoder pretrained on ImageNet~\cite{Deng09}.
+
+\subsection{DeepLabV3+}
+
+DeepLabV3+~\cite{Chen18} uses atrous (dilated) convolution and atrous spatial
+pyramid pooling to capture multi-scale context without loss of spatial resolution,
+combined with a decoder module that recovers object boundaries.
+It is included as a widely used, high-capacity CNN baseline and represents the
+heaviest of the three in both parameter count and per-step GPU time.
+Implementation: \code{segmentation\_models\_pytorch} with a ResNet-50 encoder.
+
+\subsection{SegFormer}
+
+SegFormer~\cite{Xie21} pairs a hierarchical, positional-encoding-free transformer
+encoder with a lightweight all-MLP decoder.
+It is included as the transformer baseline and, critically for this thesis, as the
+least GPU-bound of the three architectures: its low per-step compute makes it the
+configuration in which data-loading stalls are most exposed.
+Implementation: the NVlabs reference architecture as distributed through the
+HuggingFace \code{transformers} library.
+
+\subsection{Measured characteristics (Bing 1k, default loader)}
+\label{sec:measured-baseline}
+
+Table~\ref{tab:baseline-default} reports measurements on the Iris cluster on a
+single V100 with the baseline PyTorch \code{DataLoader} at default settings, and
+Table~\ref{tab:baseline-tuned} the same with loader parameters tuned
+(\code{num\_workers=4}, \code{pin\_memory=True}).
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lccc}
+\toprule
+ & SegFormer & MA-Net & DeepLabV3+ \\
+\midrule
+Trainable parameters & 3.7\,M & 17.2\,M & 26.7\,M \\
+Model size (MB)      & 15     & 68      & 106 \\
+IoU (\%)             & 67     & 68      & 35.9 \\
+Epochs               & 34     & 21      & 46 \\
+Batch size           & 32     & 32      & 32 \\
+CPU time (s)         & 3.922  & 4.512   & 4.639 \\
+GPU time (ms)        & 416.305 & 644.360 & 830.446 \\
+\bottomrule
+\end{tabular}
+\caption{Baseline characteristics with the default PyTorch \code{DataLoader}.}
+\label{tab:baseline-default}
+\end{table}
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lccc}
+\toprule
+ & SegFormer & MA-Net & DeepLabV3+ \\
+\midrule
+Trainable parameters & 3.7\,M & 17.2\,M & 26.7\,M \\
+Model size (MB)      & 15     & 68      & 106 \\
+IoU (\%)             & 67     & 73      & 43 \\
+Epochs               & 34     & 22      & 43 \\
+Batch size           & 32     & 32      & 32 \\
+CPU time (s)         & 3.922  & 4.737   & 5.245 \\
+GPU time (ms)        & 416.305 & 623.832 & 910.236 \\
+\bottomrule
+\end{tabular}
+\caption{Characteristics with loader parameters tuned
+(\code{num\_workers=4}, \code{pin\_memory=True}).}
+\label{tab:baseline-tuned}
+\end{table}
+
+Two observations from these tables set up Chapter~\ref{ch:methodology}.
+First, the ratio of CPU time to GPU time per step is large enough across all three
+architectures that the data path is a plausible bottleneck rather than a rounding
+error.
+Second, merely changing two loader flags moves MA-Net IoU by five points and
+DeepLabV3+ by seven --- a swing comparable in magnitude to the entire architectural
+search in the original paper.
+That the loader configuration is competitive with the architecture choice as a
+source of variation is the empirical hook for this work.
+
+\section{Hardware and software environment}
+
+All primary experiments were run on the Iris cluster at the University of
+Luxembourg, on GPU nodes equipped with NVIDIA V100 accelerators, scheduled via
+Slurm.
+Storage is provided by a shared GPFS filesystem, with node-local scratch available
+for staging.
+The software stack is containerised with Apptainer to guarantee a reproducible
+environment across nodes; the container image bundles PyTorch~\cite{Paszke19},
+PyTorch Lightning, \code{segmentation\_models\_pytorch}~\cite{Iakubovskii19} and
+\code{albumentations}~\cite{Buslaev20}.
+
+A secondary, single-GPU workstation environment (NVIDIA RTX~3050 Laptop, 4~GB) was
+used for development, defect analysis and reproduction work.
+Appendix~\ref{app:reproduction} documents that environment and, importantly, the
+respects in which results obtained on it are \emph{not} comparable to the cluster
+results reported above --- most consequentially the accelerator memory limit, which
+forbids the batch size of 32 used throughout the primary experiments and thereby
+degrades batch-normalisation statistics.
+That constraint is the reason all accuracy figures in this thesis are drawn from the
+cluster.
