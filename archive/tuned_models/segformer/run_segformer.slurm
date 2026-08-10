@@ -73,7 +73,7 @@ if [ "${MODE}" == "standard" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env PYTHONPATH="/workspace/.pylibs" \
         "${SIF}" \
-        python -u /workspace/tuned_models/segformer/train.py \
+        python -u /workspace/archive/tuned_models/segformer/train.py \
         2>&1 | tee "${PROJECT_ROOT}/segformer/logs/segformer_tuned_train_$(date +%Y%m%d_%H%M%S).log"
 
 # ============================================================
@@ -86,7 +86,7 @@ elif [ "${MODE}" == "tune_and_profile" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env PYTHONPATH="/workspace/.pylibs" \
         "${SIF}" \
-        python -u /workspace/tuned_models/segformer/train.py --tune --tune_trials 10 --profile \
+        python -u /workspace/archive/tuned_models/segformer/train.py --tune --tune_trials 10 --profile \
         2>&1 | tee "${PROJECT_ROOT}/segformer/logs/segformer_tuned_profile_$(date +%Y%m%d_%H%M%S).log"
 
 else

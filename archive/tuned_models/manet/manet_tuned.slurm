@@ -71,7 +71,7 @@ if [ "${MODE}" == "standard" ]; then
     apptainer exec --nv \
         --bind "${HOME}/Thesis:/workspace" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/tuned_models/manet/train.py \
+        python -u /workspace/archive/tuned_models/manet/train.py \
         2>&1 | tee "${PROJECT_ROOT}/baseline/logs/baseline_train_$(date +%Y%m%d_%H%M%S).log"
 
 # ============================================================
@@ -84,7 +84,7 @@ elif [ "${MODE}" == "profile" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --env BASELINE_PROFILE=1 \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/tuned_models/manet/train.py \
+        python -u /workspace/archive/tuned_models/manet/train.py \
         2>&1 | tee "${PROJECT_ROOT}/baseline/logs/baseline_profile_$(date +%Y%m%d_%H%M%S).log"
 
 else

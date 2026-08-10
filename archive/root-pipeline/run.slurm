@@ -4,8 +4,8 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
 #SBATCH --time=24:00:00
-#SBATCH --output=logs/%x_%j.out
-#SBATCH --error=logs/%x_%j.err
+#SBATCH --output=archive/root-pipeline/logs/%x_%j.out
+#SBATCH --error=archive/root-pipeline/logs/%x_%j.err
 #SBATCH --export=NONE
 
 set -euo pipefail
@@ -60,7 +60,7 @@ if [ "${MODE}" == "standard" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --bind "${HOME}/Thesis/bing_1k/train:/data" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/train.py \
+        python -u /workspace/archive/root-pipeline/train.py \
             --data_root /data \
             --batch_size 8 \
             --num_workers 4 \
@@ -86,7 +86,7 @@ elif [ "${MODE}" == "tune_hp" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --bind "${HOME}/Thesis/bing_1k/train:/data" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/train.py \
+        python -u /workspace/archive/root-pipeline/train.py \
             --data_root /data \
             --batch_size 8 \
             --num_workers 4 \
@@ -114,7 +114,7 @@ elif [ "${MODE}" == "cross_validate" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --bind "${HOME}/Thesis/bing_1k/train:/data" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/train.py \
+        python -u /workspace/archive/root-pipeline/train.py \
             --data_root /data \
             --batch_size 8 \
             --num_workers 4 \
@@ -144,7 +144,7 @@ elif [ "${MODE}" == "profile_best" ]; then
         --bind "${HOME}/Thesis:/workspace" \
         --bind "${HOME}/Thesis/bing_1k/train:/data" \
         "${HOME}/Thesis/tell_seg.sif" \
-        python -u /workspace/train.py \
+        python -u /workspace/archive/root-pipeline/train.py \
             --data_root /data \
             --batch_size 8 \
             --num_workers 4 \
