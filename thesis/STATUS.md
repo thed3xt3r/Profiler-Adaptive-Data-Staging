@@ -10,10 +10,11 @@ before trusting page counts/layout.
 ## Structural conversion to the University of Luxembourg HPC master-thesis template
 
 The document was converted this session from a standalone `book`-class thesis
-to the structure required by `master-thesis-template/` (the university's own
-template for the HPC master's programme), using the published example thesis
-`2602.05087v1.pdf` (Vares, *AutoDiscover*, HPC MSc 2025) as a concrete model of
-how a full-length thesis conforms to it. Specifically:
+to the structure required by `thesis/master-thesis-template/` (the university's
+own template for the HPC master's programme), using a published example thesis
+from the same programme as a concrete model of how a full-length thesis conforms
+to it (that example PDF was kept only as a working reference and has since been
+removed from the repo). Specifically:
 
 - `\documentclass[11pt,...]{book}` → `\documentclass[10pt,a4paper]{article}`.
   Every `\chapter` became `\section`, every old `\section` became
@@ -37,7 +38,7 @@ how a full-length thesis conforms to it. Specifically:
   `\includepdf`.
 - Bibliography style changed from `abbrv` to `acm` per the template.
 - Copied the university logo
-  (`master-thesis-template/master-thesis-template/univ-luxembourg-logo.eps`)
+  (`thesis/master-thesis-template/master-thesis-template/univ-luxembourg-logo.eps`)
   into `thesis/figures/` and added `\usepackage{epstopdf}` so `pdflatex` can
   render it; this machine has no `gs`/`epstopdf` to pre-convert and verify the
   logo renders, so **check the title page renders correctly on first compile**.
@@ -63,8 +64,8 @@ not confirmed — verify the actual jury composition before submission.
 | 6 Ablation | **Rewritten this session, zero placeholders** for the three sweeps actually run (component, scratch-capacity, threshold sensitivity — 39 jobs, all three architectures). Input-size/CORONA and shuffle-buffer sections were in the original evaluation plan but not run this session; left as explicitly scoped, un-executed future work rather than populated with invented numbers. |
 | 7 Conclusions | **Rewritten this session.** RQ answers, headline result, and limitations filled from real data; corrected an earlier draft's inaccurate "loader flags move IoU by five to seven points" claim (real deltas: +3.2, +2.6, −2.5pp — mixed direction, GPU-utilisation impact is the real effect at 24-51pp). |
 | 8 Future Work | **Strengthened this session.** "Online rather than one-shot adaptation" now has a concrete evidenced starting point (the profiler-bias diagnostic) instead of being purely speculative. |
-| Appendix A Reproduction | **Extended this session** with §A.4, "Closing the gap": the batch-size hypothesis from the original workstation reproduction is now confirmed directly, not just by analogy — a full-protocol replica (`casini_reference`) run on the cluster at batch 32/20 epochs/10 test passes reached 72.8-73.5% IoU across all three architectures, within 1-1.4 points of the published 74.17±0.38. |
-| Appendix B Defects | **Extended this session** with two new accuracy-affecting defect rows (IoU-averaging convention and flip-augmentation semantics, both specific to the main `PADS/*/` pipeline, not present in the reproduction appendix's own port) and a new §B.4 covering four defects found while collecting this session's evidence: a disk-quota exhaustion bug (scratch dir scoped per-`project_root` instead of shared), a checkpoint-auto-resume-from-truncated-file failure mode, a Lightning 2.x epoch-hook wiring bug in `casini_reference` itself, and the profiler warm-up-window bias (detailed in Ch.5). |
+| Appendix A Reproduction | **Extended this session** with §A.4, "Closing the gap": the batch-size hypothesis from the original workstation reproduction is now confirmed directly, not just by analogy — a full-protocol replica (`0-reproduction`) run on the cluster at batch 32/20 epochs/10 test passes reached 72.8-73.5% IoU across all three architectures, within 1-1.4 points of the published 74.17±0.38. |
+| Appendix B Defects | **Extended this session** with two new accuracy-affecting defect rows (IoU-averaging convention and flip-augmentation semantics, both specific to the main `3-pads/*/` pipeline, not present in the reproduction appendix's own port) and a new §B.4 covering four defects found while collecting this session's evidence: a disk-quota exhaustion bug (scratch dir scoped per-`project_root` instead of shared), a checkpoint-auto-resume-from-truncated-file failure mode, a Lightning 2.x epoch-hook wiring bug in `0-reproduction` itself, and the profiler warm-up-window bias (detailed in Ch.5). |
 
 ## Figures generated this session
 
@@ -73,7 +74,7 @@ Ten new figures in `figures/`, all from real data: `ablation-components.png`,
 `rq3-endtoend.png`, `rq4-prefetch-depth.png`, `profiler-bias-sweep.png`,
 `reproduction-gap-closure.png`, and `prediction-examples.png` (real inference
 on four held-out test tiles, all three architectures, using the
-`casini_reference` full-protocol checkpoints — input / ground-truth overlay /
+`0-reproduction` full-protocol checkpoints — input / ground-truth overlay /
 per-architecture prediction heatmap, in the style of Casini et al.'s Figure 2).
 Generated via `thesis/scripts/make_thesis_figures.py` and
 `thesis/scripts/make_prediction_figures.py` (also `inference_bench.py` in the

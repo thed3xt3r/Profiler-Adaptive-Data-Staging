@@ -97,17 +97,17 @@ fp16 divergence on EfficientNet
     non-finite. \\
 IoU averaging convention (main pipeline)
   \label{sec:defect-metric}
-  & \code{PADS/*/model.py} computes validation/test IoU with
+  & \code{3-pads/*/model.py} computes validation/test IoU with
     \code{torchmetrics.BinaryJaccardIndex}, which pools confusion-matrix counts
     across the whole split before dividing, rather than the reference's
     per-image mean (Section~\ref{sec:repro-metric}, which quantifies a 3.7-point
     effect from this convention alone on one checkpoint). Not present in either
     the Appendix~\ref{app:reproduction} workstation port or
-    \code{casini\_reference}, both of which use \code{smp.metrics.iou\_score}
+    \code{0-reproduction}, both of which use \code{smp.metrics.iou\_score}
     with \code{reduction="macro-imagewise"} throughout. \\
 Flip-augmentation semantics (main pipeline)
   \label{sec:defect-augmentation}
-  & \code{PADS/*/dataset.py} applies two independent single-axis flip
+  & \code{3-pads/*/dataset.py} applies two independent single-axis flip
     transforms rather than the reference's \code{A.Flip}, which selects one of
     \{vertical, horizontal, both\} uniformly (Appendix~\ref{app:reproduction},
     Section~\ref{sec:repro-faithfulness} measures the reference semantics
@@ -119,10 +119,10 @@ Flip-augmentation semantics (main pipeline)
 \bottomrule
 \end{tabular}
 \caption{Accuracy-affecting defects. The final two rows are specific to
-\code{PADS/*/model.py} and \code{PADS/*/dataset.py} (Sections~\ref{ch:results}
+\code{3-pads/*/model.py} and \code{3-pads/*/dataset.py} (Sections~\ref{ch:results}
 and~\ref{ch:ablation}'s pipeline); neither is present in
 Appendix~\ref{app:reproduction}'s workstation port or in
-\code{casini\_reference} (Section~\ref{sec:repro-closure}).}
+\code{0-reproduction} (Section~\ref{sec:repro-closure}).}
 \label{tab:accuracy-defects}
 \end{table}
 
@@ -175,7 +175,7 @@ and~\ref{ch:ablation}.
     \code{RuntimeError: PytorchStreamReader failed reading zip archive} rather
     than falling back to a fresh run. Affected job directories were identified
     and their partial checkpoints removed before resubmission.
-  \item \textbf{\code{casini\_reference}'s epoch-end hooks never wired in for
+  \item \textbf{\code{0-reproduction}'s epoch-end hooks never wired in for
     two of three architectures.} \code{build\_model()} and
     \code{load\_model\_from\_checkpoint()} instantiated the plain
     \code{ArcheoModel} base class for the MA-Net and DeepLabV3+ code paths,

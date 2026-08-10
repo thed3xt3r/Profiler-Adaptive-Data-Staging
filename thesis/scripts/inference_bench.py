@@ -6,7 +6,7 @@ import random
 import numpy as np
 import torch
 
-sys.path.insert(0, "/workspace/casini_reference")
+sys.path.insert(0, "/workspace/0-reproduction")
 from dataset import load_dataset, esegui_trasformazioni, ArcheoDataset
 from model import _EpochBufferedArcheoModel, SegformerArcheoModel
 
@@ -17,7 +17,7 @@ ARCH_CONFIG = {
 }
 
 DATASET_PATH = "/workspace/bing_1k"
-RUNS_ROOT = "/workspace/casini_reference/runs"
+RUNS_ROOT = "/workspace/0-reproduction/runs"
 BATCH_SIZE = 32
 RANDOM_SEED = 1234
 N_WARMUP_BATCHES = 5

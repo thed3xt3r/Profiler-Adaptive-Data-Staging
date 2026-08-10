@@ -90,7 +90,7 @@ segmentation quality.
 
 The batch-size hypothesis of Section~\ref{sec:repro-result} was tested directly
 rather than left as an inference from BatchNorm theory. A from-scratch replica,
-\code{casini\_reference}, was built independently of both the workstation port
+\code{0-reproduction}, was built independently of both the workstation port
 above and the main \pads{} pipeline evaluated in Sections~\ref{ch:results}
 and~\ref{ch:ablation}, for the specific purpose of isolating implementation
 differences from a genuine reproducibility gap. It was run on the cluster at the
@@ -142,9 +142,9 @@ per-image (Section~\ref{sec:repro-metric} quantifies a 3.7-point effect from thi
 alone on one checkpoint), and a flip-augmentation implementation that applies two
 independent single-axis flips rather than the reference's \code{A.Flip}
 semantics (Section~\ref{sec:defect-augmentation}, Appendix~\ref{app:defects}).
-Both are properties of \code{PADS/*/model.py} and \code{PADS/*/dataset.py}
+Both are properties of \code{3-pads/*/model.py} and \code{3-pads/*/dataset.py}
 specifically, not of this appendix's already-faithful port or of
-\code{casini\_reference}; neither pipeline used to produce
+\code{0-reproduction}; neither pipeline used to produce
 Table~\ref{tab:repro-full} exhibits either defect. The two effects are not
 individually large enough to explain the full gap between $\sim$0.35 and
 $0.73$--$0.74$ on their own, and combined with an abbreviated training protocol

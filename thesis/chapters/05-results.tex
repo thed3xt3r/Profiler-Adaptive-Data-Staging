@@ -406,7 +406,7 @@ as ``5 was sufficient in this test,'' not as a claim that discard values
 between 5 and 10 were compared and found unnecessary. \textbf{The corrected
 profiler default is \code{--sweep\_discard 5 --profile\_batches 8}} in place of
 the shipped \code{--profile\_batches 8} with no discard; both flags are
-implemented in all three \code{PADS/*/train.py}, bringing the implementation
+implemented in all three \code{3-pads/*/train.py}, bringing the implementation
 into line with Section~\ref{ch:methodology}'s discard-based safeguard, though
 not yet with its median-aggregation one (Appendix~\ref{app:defects},
 Section~\ref{sec:defects-session2}). Measured fairly, every full-window ratio
@@ -496,7 +496,7 @@ throughout this chapter -- clustering around 0.32--0.40 -- sit far below the
 published $74.17 \pm 0.38$. Two concrete, fixable bugs in the main pipeline (the
 metric-averaging convention itself, and a flip-augmentation semantics error)
 account for only part of that gap. The remainder was closed by a from-scratch,
-maximally faithful replica (\code{casini\_reference}), run to the reference's
+maximally faithful replica (\code{0-reproduction}), run to the reference's
 full protocol -- 20 epochs, no early stopping, batch size 32, ten independent
 test-set passes -- rather than the abbreviated protocol used for the tables
 above. That replica reached $72.8$--$73.5\%$ IoU across all three architectures,

@@ -18,7 +18,7 @@ bing_1k_tars/
 data/
 checkpoints/
 checkpoints_*/
-webDataset/shards/
+2-webdataset/shards/
 *.ckpt
 *.pt
 *.pth

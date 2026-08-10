@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, "/workspace/casini_reference")
+sys.path.insert(0, "/workspace/0-reproduction")
 from dataset import load_dataset, esegui_trasformazioni, ArcheoDataset
 from model import _EpochBufferedArcheoModel, SegformerArcheoModel
 
@@ -17,7 +17,7 @@ ARCH_CONFIG = {
     "segformer": {"arch": None,             "encoder": "b0",              "ckpt": "segformer_full/lightning_logs/version_0/checkpoints/epoch=19-step=2940.ckpt"},
 }
 DATASET_PATH = "/workspace/bing_1k"
-RUNS_ROOT = "/workspace/casini_reference/runs"
+RUNS_ROOT = "/workspace/0-reproduction/runs"
 OUT_DIR = "/workspace/thesis/figures"
 RANDOM_SEED = 1234
 N_EXAMPLES = 4

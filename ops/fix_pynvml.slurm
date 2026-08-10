@@ -11,7 +11,7 @@ set -euo pipefail
 
 module load tools/Apptainer/1.4.0
 
-# GPUUtilMonitor (PADS/*/gpu_monitor.py) needs pynvml to poll NVML for GPU
+# GPUUtilMonitor (3-pads/*/gpu_monitor.py) needs pynvml to poll NVML for GPU
 # utilisation -- confirmed missing from tell_seg.sif. Same mechanism as
 # fix_numpy_abi.slurm: install into .pylibs (bind-mounted, prepended to
 # PYTHONPATH ahead of the container's own site-packages) rather than
