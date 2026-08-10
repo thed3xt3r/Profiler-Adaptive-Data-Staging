@@ -1,9 +1,9 @@
 %% ============================================================================
-\chapter{Introduction}
-\addcontentsline{lof}{chapter}{Introduction}
+\section{Introduction}
+\addcontentsline{lof}{section}{Introduction}
 %% ============================================================================
 
-\section{Background and Motivation}
+\subsection{Background and Motivation}
 
 Remote sensing has become a central instrument of archaeological prospection.
 Where a field survey of a large region once required years of systematic ground
@@ -17,7 +17,7 @@ one place over long periods~\cite{Wilkinson03}.
 Their colour and shape make them visible from above, and that visibility is what
 makes automated detection plausible at all.
 
-Semantic segmentation --- assigning a class label to every pixel --- is well matched
+Semantic segmentation - assigning a class label to every pixel - is well matched
 to this task, because archaeologists need the outline of a site rather than merely
 its presence.
 Casini et al.~\cite{Casini23} fine-tuned pretrained segmentation networks on a corpus
@@ -39,7 +39,7 @@ filesystem optimised for large sequential transfers rather than for many-small-f
 metadata operations.
 The accelerator waits.
 
-\section{The problem}
+\subsection{The problem}
 
 Three properties of this setting, taken together, define the problem addressed here.
 
@@ -47,7 +47,7 @@ Three properties of this setting, taken together, define the problem addressed h
 Profiling the baseline pipeline across three architectures shows a ratio of
 data-path time to compute time large enough that the loader is a plausible
 constraint rather than a rounding error, and the effect is most pronounced for
-the architecture with the lowest per-step compute --- precisely the configuration
+the architecture with the lowest per-step compute - precisely the configuration
 in which a fast model exposes a slow pipeline.
 
 \paragraph{The bottleneck moves, but the configuration does not.}
@@ -59,13 +59,13 @@ lifetime of a single job.
 A statically configured loader cannot respond to a bottleneck that shifts underneath it.
 
 \paragraph{Future accesses are known exactly, not merely predictable.}
-Once the epoch permutation is drawn, the sequence of samples --- and hence the
-sequence of files --- is fully determined.
+Once the epoch permutation is drawn, the sequence of samples - and hence the
+sequence of files - is fully determined.
 Prefetching in this setting need not be speculative.
 This is the property that the method exploits, and it is what separates an exact
 staging schedule from a heuristic cache.
 
-\section{Research question}
+\subsection{Research question}
 
 The thesis addresses one question:
 
@@ -86,14 +86,14 @@ experimental contrast rather than by an aggregate result:
   \item[RQ4.] Can prefetch depth be auto-tuned from measured timings?
 \end{description}
 
-\section{Contributions}
+\subsection{Contributions}
 
 \begin{enumerate}
   \item \textbf{A characterisation of the workload as an I/O problem.}
     We describe the segmentation corpus not only by its class balance and evaluation
     metrics, as is conventional, but by its file count, size distribution and access
-    pattern --- the characterisation that motivates staging and that the segmentation
-    literature usually leaves implicit (Chapter~\ref{ch:materials}).
+    pattern - the characterisation that motivates staging and that the segmentation
+    literature usually leaves implicit (Section~\ref{ch:materials}).
 
   \item \textbf{\pads{}, a profiler-adaptive data-staging loader.}
     A drop-in \code{DataLoader} replacement that measures \Tdata{}, \Tdecode{},
@@ -101,32 +101,36 @@ experimental contrast rather than by an aggregate result:
     bottleneck by an inspectable rule set, selects among loose, shard and stage
     policies, and derives its prefetch depth from the measured staging and
     consumption times rather than from a user-supplied constant
-    (Chapter~\ref{ch:methodology}).
+    (Section~\ref{ch:methodology}).
 
   \item \textbf{An evaluation that isolates each mechanism.}
     \pads{} is compared against an unmodified loader, a manually tuned loader,
     fixed tar-shard streaming, and a full pre-staging upper bound, so that the
     benefit of sharding is separated from the benefit of staging, and the benefit
     of staging from the benefit of \emph{predicting} what to stage
-    (Chapter~\ref{ch:results}).
+    (Section~\ref{ch:results}).
 
   \item \textbf{A reproduction of the reference segmentation results, and an account
     of what it takes to obtain them.}
     We reproduce the reference configuration of Casini et al.~\cite{Casini23} and
     document the pipeline defects and environmental sensitivities encountered in
-    doing so, including a case in which reduced batch size --- forced by accelerator
-    memory --- degrades IoU substantially through its effect on batch normalisation
-    statistics (Appendix~\ref{app:reproduction}).
+    doing so, including a case in which reduced batch size - forced by accelerator
+    memory - degrades IoU substantially through its effect on batch normalisation
+    statistics. That diagnosis is then confirmed directly rather than left as an
+    inference: a full-protocol replica at the reference's own batch size, epoch
+    budget and final-epoch weighting closes the gap to within $1$--$1.4$ points of
+    the published figure, across all three architectures used throughout this
+    thesis (Appendix~\ref{app:reproduction}).
 \end{enumerate}
 
-\section{Thesis structure}
+\subsection{Thesis structure}
 
-Chapter~\ref{ch:literature} reviews segmentation architectures, deep learning for
+Section~\ref{ch:literature} reviews segmentation architectures, deep learning for
 archaeological prospection, and prior work on I/O for large-scale training.
-Chapter~\ref{ch:materials} describes the dataset in both of its characterisations
+Section~\ref{ch:materials} describes the dataset in both of its characterisations
 and the three model architectures.
-Chapter~\ref{ch:methodology} presents \pads{}.
-Chapter~\ref{ch:results} reports the evaluation, and Chapter~\ref{ch:ablation}
+Section~\ref{ch:methodology} presents \pads{}.
+Section~\ref{ch:results} reports the evaluation, and Section~\ref{ch:ablation}
 isolates the contribution of individual components.
-Chapter~\ref{ch:conclusions} concludes, and Chapter~\ref{ch:futurework} discusses
+Section~\ref{ch:conclusions} concludes, and Section~\ref{ch:futurework} discusses
 limitations and further work.

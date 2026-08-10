@@ -1,5 +1,5 @@
 %% ============================================================================
-\chapter{Literature Review}
+\section{Literature Review}
 \label{ch:literature}
 %% ============================================================================
 
@@ -10,7 +10,7 @@ and input-pipeline performance for large-scale training (Section~\ref{sec:lit-io
 The first two establish the workload; the third establishes the gap that
 \pads{} addresses.
 
-\section{Semantic segmentation architectures}
+\subsection{Semantic segmentation architectures}
 \label{sec:lit-seg}
 
 Semantic segmentation assigns a class label to every pixel of an image.
@@ -29,7 +29,7 @@ pyramid pooling with a decoder module that recovers object boundaries, capturing
 multi-scale context at high capacity.
 The second inserts attention into the encoder--decoder.
 MA-Net~\cite{Fan20} augments a U-Net-like structure with self-attention in the
-latent space, allowing the network to weight latent features by content --- an idea
+latent space, allowing the network to weight latent features by content - an idea
 imported from the transformer literature~\cite{Vaswani17}.
 Developed for liver and tumour segmentation, MA-Net has since been applied to
 remote sensing, and it is the architecture selected as best-performing by
@@ -51,12 +51,12 @@ All architectures are instantiated through
 \code{segmentation\_models\_pytorch}~\cite{Iakubovskii19}, which allows encoder and
 decoder to be selected independently and supplies the loss functions used here.
 
-\section{Deep learning for archaeological prospection}
+\subsection{Deep learning for archaeological prospection}
 \label{sec:lit-arch}
 
 Archaeology is what Bickler terms a ``slow data'' field: annotated examples accrue
 through fieldwork, not through scraping, and corpora are correspondingly small.
-The standard response is transfer learning --- initialising from a model pretrained
+The standard response is transfer learning - initialising from a model pretrained
 on a large general corpus such as ImageNet~\cite{Deng09} and fine-tuning on the
 specific task.
 
@@ -73,6 +73,39 @@ structures from LiDAR.
 Verschoof-van der Vaart and Lambers~\cite{Verschoof22} report on applying automated
 object detection within archaeological practice, emphasising the integration
 question rather than the accuracy question alone.
+A closely related strand uses object detection rather than segmentation to
+localise individual features: Caspari and Crespo~\cite{Caspari19} train a CNN to
+detect early Iron Age burial mounds in the Eurasian steppe, and Chen et
+al.~\cite{Chen21} adapt off-the-shelf object detectors to find stone kurgans in the
+Altai Mountains; both report that the model narrows the area a human surveyor must
+inspect rather than replacing survey outright.
+Guyot et al.\ illustrate the same architectural shift within a single research
+line: an earlier Random Forest classifier over multi-scale LiDAR-derived
+topographic features~\cite{Guyot18} is followed, three years later, by a
+deep-learning detection-and-segmentation pipeline on the same class of
+data~\cite{Guyot21}.
+
+The Mesopotamian floodplain dataset used in this thesis originates from a specific
+research programme at the University of Bologna, and that programme's own
+publication history illustrates how this literature accumulates.
+Roccetti et al.~\cite{Roccetti20} first assessed the feasibility of a deep-learning
+model for discovering new sites in this floodplain; Casini et
+al.~\cite{Casini22} followed with the preliminary semantic-segmentation study that
+this thesis reproduces (Appendix~\ref{app:reproduction}); Casini et
+al.~\cite{Casini23} then added the human-in-the-loop adjudication step discussed
+below; and, most recently, Pistola et al.~\cite{Pistola25} retrained the same
+underlying model on CORONA satellite imagery from the 1960s for the Abu Ghraib
+district west of Baghdad, reporting a segmentation IoU above 85\% and confirming
+four previously unrecorded sites through field verification.
+Two other groups apply CNNs to CORONA imagery in different regions: Soroush et
+al.~\cite{Soroush20} detect qanat shafts in the Kurdistan Region of Iraq, and
+Vadineanu et al.~\cite{Vadineanu24} use explainability techniques on
+CORONA-trained classifiers to delineate mounded settlements in Upper Mesopotamia.
+Both are relevant to Section~\ref{sec:ablation-input}'s CORONA input variant: they
+confirm that CORONA-based detection is an established, independently replicated
+task, not a peculiarity of this dataset, though neither paper reports the
+per-file storage cost of the imagery, which is this thesis's specific concern
+with it.
 
 Two themes from this literature bear directly on the present work.
 First, evaluation is unusually fraught.
@@ -94,12 +127,16 @@ which raises reported detection accuracy from roughly 63\% to 80\%.
 This is a property of the corpus, not of any particular model, and it bounds what
 any reproduction can be expected to achieve.
 
-\section{Input pipelines and I/O for large-scale training}
+\subsection{Input pipelines and I/O for large-scale training}
 \label{sec:lit-io}
 
 The literature above is concerned with what the model computes.
 A separate and smaller literature is concerned with whether the accelerator is
 given anything to compute.
+General surveys of GPU-oriented deep-learning optimisation~\cite{Mittal19} cover
+compute- and memory-level techniques - kernel fusion, mixed precision,
+distributed parallelism - but treat the input pipeline as out of scope; the
+work reviewed below fills that gap specifically.
 
 Mohan et al.~\cite{Mohan21} characterise \emph{data stalls} in DNN training and show
 that they are common rather than exceptional: across a range of workloads,
@@ -111,6 +148,12 @@ redundant preprocessing across concurrent jobs.
 Murray et al.~\cite{Murray21} describe \code{tf.data} and make the same argument from
 the framework side, arguing that input pipelines deserve to be treated as
 first-class, optimisable programs rather than as glue code.
+Svogor et al.~\cite{Svogor22} profile the PyTorch \code{DataLoader} specifically
+against high-latency, S3-like object storage and report that a modified
+\code{ConcurrentDataloader} recovers up to a $12\times$ reduction in batch-loading
+time - independent confirmation, on different storage and a different framework
+layer, that the many-small-file problem this thesis targets on GPFS is not an
+artefact of one filesystem.
 
 The many-small-file problem is a specific and well-known pathology on parallel
 filesystems.
@@ -121,10 +164,18 @@ The standard mitigation is to aggregate samples into large sequentially read
 archives.
 WebDataset~\cite{Aizman19} formalises this: samples are stored in POSIX tar archives
 and streamed sequentially, converting many small random reads into few large
-sequential ones, at the cost of exact random-access shuffling --- which is
+sequential ones, at the cost of exact random-access shuffling - which is
 approximated by shuffling shard order and maintaining an in-memory sample buffer.
 NVIDIA DALI~\cite{DALI} attacks an adjacent part of the problem by moving decode and
 augmentation onto the GPU.
+The term \emph{IO-aware}, used throughout this thesis for \pads{}'s central
+mechanism, echoes an argument made one level lower in the compute stack: Dao et
+al.~\cite{Dao22} show that attention kernels which account explicitly for the cost
+of moving data between GPU high-bandwidth memory and on-chip SRAM outperform
+kernels that minimise floating-point operations alone.
+The claim in this thesis is the same principle applied one layer higher in the
+storage hierarchy - between a shared parallel filesystem and node-local scratch,
+rather than between HBM and SRAM.
 
 Two gaps in this body of work motivate \pads{}.
 
@@ -143,7 +194,7 @@ Here they need not be: once the permutation is drawn, the identity of the next $
 samples is determined, and a staging schedule can be computed rather than guessed.
 \pads{} is built on that observation.
 
-\section{Summary}
+\subsection{Summary}
 
 Segmentation architecture for this workload is a solved problem in the sense that
 matters here: the reference study found that architectural choice moves IoU by only

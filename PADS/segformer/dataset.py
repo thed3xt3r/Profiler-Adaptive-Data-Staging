@@ -3,6 +3,7 @@ import time
 import tarfile
 import shutil
 import tempfile
+import math
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import albumentations as A
@@ -272,9 +273,39 @@ class StagingArcheoDataset(Dataset):
     """
     Dataset that stages data to node-local scratch before loading.
     Reduces shared filesystem latency.
+
+    full_prestage=True copies the entire dataset to scratch in __init__
+    (evaluation method 4, the "full pre-stage ceiling" -- see
+    Section~\\ref{sec:evaluation-plan}), rather than the rolling
+    stage_depth-item lookahead window that predictive staging uses. It is a
+    static, non-adaptive baseline: everything is staged up front regardless
+    of whether it fits or whether adaptivity would have helped.
+
+    stage_depth is d in Section~\\ref{ch:methodology}'s Stage 4 (predictive
+    staging): the lookahead window is re-staged every stage_depth//4 items
+    consumed (matching the original fixed 64-item window's 64/16=4 ratio of
+    window size to re-trigger interval), copying the next stage_depth items
+    to scratch each time. RQ4's fixed-depth sweep sets this directly
+    (1/2/4/8); the "auto" arm derives it from measured timings via
+    compute_adaptive_stage_depth() below and passes the result in here --
+    train.py, not this class, owns which one happens. Was hardcoded to 64
+    with no way to override it or trace it back to a measurement; that made
+    "auto-tuned depth" aspirational (Section~\\ref{ch:methodology} describes
+    d = min(ceil(t_stage/t_consume) + 1, d_max), but nothing computed it).
+
+    scratch_capacity_pct, if given (0.0-1.0), caps the number of items ever
+    staged at that fraction of the corpus -- a synthetic "scratch is smaller
+    than the dataset" regime for Chapter 6's scratch-capacity ablation
+    (Table~\\ref{tab:ablation-scratch}). Once the cap is hit, later items
+    permanently fall back to the loose read path in __getitem__ rather than
+    being staged; this is the regime the design is actually aimed at
+    (Section~\\ref{sec:ablation-capacity} -- real scratch on this cluster
+    comfortably fits the Bing 1k corpus, so the constraint has to be
+    synthetic to be exercised at all). None = unconstrained (real capacity).
     """
     def __init__(self, data_items, originals_images_dir, originals_masks_dir,
-                 negs_images_dir, negs_masks_dir, transform=None, scratch_dir=None):
+                 negs_images_dir, negs_masks_dir, transform=None, scratch_dir=None,
+                 full_prestage=False, scratch_capacity_pct=None, stage_depth=64):
         self.data_items = data_items
         self.originals_images_dir = originals_images_dir
         self.originals_masks_dir = originals_masks_dir
@@ -283,16 +314,43 @@ class StagingArcheoDataset(Dataset):
         self.transform = transform
         self.profile_enabled = False
         self.profile_stats = []
+        self.full_prestage = full_prestage
+        self.stage_depth = max(1, int(stage_depth))
+        # Same ratio the original fixed window used (restage after a quarter
+        # of the window has been consumed), just parameterised by depth now.
+        self._restage_interval = max(1, self.stage_depth // 4)
+        self.scratch_capacity_items = (
+            max(0, int(len(data_items) * scratch_capacity_pct))
+            if scratch_capacity_pct is not None else None
+        )
+        self._staging_hits = 0
+        self._staging_misses = 0
 
         # Use /tmp or provided scratch directory
         self.scratch_dir = scratch_dir or tempfile.gettempdir()
         self._staged = set()
-        self._stage_batch(0, min(64, len(data_items)))
+        if full_prestage:
+            stage_start = time.perf_counter()
+            self._stage_batch(0, len(data_items))
+            elapsed = time.perf_counter() - stage_start
+            print(f"[StagingArcheoDataset] full_prestage: staged "
+                  f"{len(self._staged)}/{len(data_items)} items to "
+                  f"{self.scratch_dir} in {elapsed:.1f}s")
+        else:
+            self._stage_batch(0, min(self.stage_depth, len(data_items)))
 
     def _stage_batch(self, start_idx, end_idx):
         """Pre-copy a batch of files to scratch."""
         for idx in range(start_idx, end_idx):
             if idx >= len(self.data_items):
+                break
+            if (self.scratch_capacity_items is not None
+                    and len(self._staged) >= self.scratch_capacity_items):
+                # Synthetic scratch is full: everything from here on falls
+                # back to the loose read path in __getitem__ permanently,
+                # not just until space frees up (there is no eviction here --
+                # this ablation is about whether PADS degrades gracefully
+                # when it never fits, not about steady-state churn).
                 break
             data_item = self.data_items[idx]
             image_filename = data_item["filename"]
@@ -327,9 +385,11 @@ class StagingArcheoDataset(Dataset):
         self.profile_stats = []
 
     def __getitem__(self, idx):
-        # Stage next batch ahead of time
-        if idx % 16 == 0:
-            self._stage_batch(idx + 64, idx + 128)
+        # Stage next batch ahead of time. Skipped under full_prestage: everything
+        # is already on scratch from __init__, so there is nothing left to stage
+        # and no adaptive lookahead logic runs during the timed portion.
+        if not self.full_prestage and idx % self._restage_interval == 0:
+            self._stage_batch(idx + self.stage_depth, idx + 2 * self.stage_depth)
 
         data_item = self.data_items[idx]
         image_filename = data_item["filename"]
@@ -341,12 +401,14 @@ class StagingArcheoDataset(Dataset):
         scratch_mask = os.path.join(self.scratch_dir, image_filename.replace(".jpg", ".png"))
 
         if os.path.exists(scratch_img):
+            self._staging_hits += 1
             image = np.asarray(Image.open(scratch_img).convert("RGB"))
             if os.path.exists(scratch_mask):
                 mask = ~np.array(Image.open(scratch_mask).convert("L"))
             else:
                 mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
         else:
+            self._staging_misses += 1
             # Fallback to original location
             source = data_item["source"]
             if source == "originals":
@@ -374,3 +436,97 @@ class StagingArcheoDataset(Dataset):
             self.profile_stats.append(time.perf_counter() - start_time)
 
         return image, mask, image_filename
+
+    def staging_hit_rate(self):
+        """Fraction of __getitem__ calls so far served from scratch rather
+        than falling back to the loose path -- the "Staging hit rate" column
+        of Table~\\ref{tab:ablation-scratch}. None if __getitem__ hasn't been
+        called yet."""
+        total = self._staging_hits + self._staging_misses
+        return (self._staging_hits / total) if total else None
+
+
+def measure_staging_timings(data_items, originals_images_dir, originals_masks_dir,
+                             negs_images_dir, negs_masks_dir, scratch_dir, sample_n=16):
+    """Measure t_stage and t_consume for the adaptive prefetch-depth formula
+    (Section~\\ref{ch:methodology}, Stage 4): t_stage is the time to copy one
+    item to scratch, t_consume the time to read+decode it back from scratch.
+    Also returns the mean bytes copied per item, needed for d_max.
+
+    The sampled items are left on scratch afterwards (copies are idempotent,
+    same skip-if-exists check as _stage_batch), so this measurement pass
+    doubles as real staging rather than being throwaway work.
+    """
+    sample_n = min(sample_n, len(data_items))
+    stage_times, consume_times, byte_counts = [], [], []
+
+    for idx in range(sample_n):
+        data_item = data_items[idx]
+        image_filename = data_item["filename"]
+        source = data_item["source"]
+        if source == "originals":
+            src_img_dir, src_mask_dir = originals_images_dir, originals_masks_dir
+        else:
+            src_img_dir, src_mask_dir = negs_images_dir, negs_masks_dir
+
+        src_img = os.path.join(src_img_dir, image_filename)
+        src_mask = os.path.join(src_mask_dir, image_filename.replace(".jpg", ".png"))
+        dst_img = os.path.join(scratch_dir, image_filename)
+        dst_mask = os.path.join(scratch_dir, image_filename.replace(".jpg", ".png"))
+
+        stage_start = time.perf_counter()
+        copied_bytes = 0
+        try:
+            if not os.path.exists(dst_img) and os.path.exists(src_img):
+                shutil.copy2(src_img, dst_img)
+            if not os.path.exists(dst_mask) and os.path.exists(src_mask):
+                shutil.copy2(src_mask, dst_mask)
+            if os.path.exists(dst_img):
+                copied_bytes += os.path.getsize(dst_img)
+            if os.path.exists(dst_mask):
+                copied_bytes += os.path.getsize(dst_mask)
+        except (IOError, OSError):
+            continue
+        stage_times.append(time.perf_counter() - stage_start)
+        byte_counts.append(copied_bytes)
+
+        consume_start = time.perf_counter()
+        try:
+            _ = np.asarray(Image.open(dst_img).convert("RGB"))
+            if os.path.exists(dst_mask):
+                _ = np.array(Image.open(dst_mask).convert("L"))
+        except (IOError, OSError):
+            pass
+        consume_times.append(time.perf_counter() - consume_start)
+
+    t_stage = float(np.mean(stage_times)) if stage_times else 0.0
+    t_consume = float(np.mean(consume_times)) if consume_times else 0.0
+    s_item = float(np.mean(byte_counts)) if byte_counts else 0.0
+    return t_stage, t_consume, s_item
+
+
+def compute_adaptive_stage_depth(data_items, originals_images_dir, originals_masks_dir,
+                                  negs_images_dir, negs_masks_dir, scratch_dir, sample_n=16):
+    """d = min(ceil(t_stage / t_consume) + 1, d_max) -- the auto-tuned
+    prefetch depth from Section~\\ref{ch:methodology} (Stage 4: predictive
+    staging). d_max is how many items fit in the scratch dir's free capacity;
+    the +1 is slack against jitter in t_stage, same as the thesis formula.
+    """
+    t_stage, t_consume, s_item = measure_staging_timings(
+        data_items, originals_images_dir, originals_masks_dir,
+        negs_images_dir, negs_masks_dir, scratch_dir, sample_n=sample_n,
+    )
+    free_bytes = shutil.disk_usage(scratch_dir).free
+    d_max = (len(data_items) if s_item <= 0
+              else max(1, min(len(data_items), int(free_bytes // s_item))))
+    t_consume_safe = max(t_consume, 1e-6)
+    depth = max(1, min(math.ceil(t_stage / t_consume_safe) + 1, d_max))
+    return {
+        "depth": depth,
+        "t_stage": t_stage,
+        "t_consume": t_consume,
+        "s_item_bytes": s_item,
+        "d_max": d_max,
+        "scratch_free_bytes": free_bytes,
+        "sample_n": sample_n,
+    }

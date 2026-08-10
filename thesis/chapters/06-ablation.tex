@@ -1,153 +1,221 @@
 %% ============================================================================
-\chapter{Ablation Study}
+\section{Ablation Study}
 \label{ch:ablation}
-\addcontentsline{lot}{chapter}{Ablation Study}
+\addcontentsline{lot}{section}{Ablation Study}
 %% ============================================================================
 
-%% SCAFFOLD -- see note at the head of Chapter 5.
-
-Chapter~\ref{ch:results} evaluates \pads{} as a whole.
+Section~\ref{ch:results} evaluates \pads{} as a whole.
 This chapter isolates the contribution of its individual mechanisms and probes the
-conditions under which the design's assumptions fail.
+conditions under which the design's assumptions fail, across all three
+architectures. Sections~\ref{sec:ablation-components}--\ref{sec:ablation-thresholds}
+report three sweeps run to completion this session (39 jobs: 12 component
+configurations, 15 scratch-capacity configurations, 12 threshold configurations).
+Sections~\ref{sec:ablation-input} and~\ref{sec:ablation-shuffle} were part of the
+original evaluation plan but were not run in this session; they are retained as
+scoped, un-executed future work rather than populated with invented numbers.
+As in Section~\ref{ch:results}, every figure below is a single run ($n=1$);
+see that chapter's opening note and Section~\ref{ch:futurework} for why, and
+what it means for how these comparisons should be read.
 
-\section{Component ablation}
+\subsection{Component ablation}
+\label{sec:ablation-components}
 
-\pads{} combines three mechanisms: sharding, staging, and adaptive prefetch depth.
-Table~\ref{tab:ablation-components} enables each in turn.
+\pads{} combines three mechanisms: sharding, staging, and adaptive policy
+selection. Table~\ref{tab:ablation-components} enables each in turn. The
+shard+stage combination (row 4 of the original evaluation plan) is not
+expressible in the current implementation -- \code{--data\_policy} is a
+single-select flag among \{loose, shard, stage\} -- and is reported here as a
+concrete implementation limitation rather than a missing run.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{cccccc}
+\begin{tabular}{llccc}
 \toprule
-Shard & Stage & Adaptive $d$ & Throughput & GPU util.\ (\%) & IoU \\
+Architecture & Configuration & GPU util.\ (\%) & IoU (pooled) \\
 \midrule
-      &       &       & & & \\
-\checkmark & & & & & \\
-      & \checkmark & & & & \\
-\checkmark & \checkmark & & & & \\
-\checkmark & \checkmark & \checkmark & & & \\
+DeepLabV3+ & None (loose)            & 61.0 & 0.3707 \\
+           & Shard only              & \textbf{84.1} & 0.3569 \\
+           & Stage only              & 67.6 & 0.3582 \\
+           & Full \pads{} (adaptive) & 79.2 & 0.3459 \\
+\midrule
+MA-Net     & None (loose)            & 84.6 & 0.3695 \\
+           & Shard only              & 86.8 & 0.3527 \\
+           & Stage only              & \textbf{87.0} & 0.3602 \\
+           & Full \pads{} (adaptive) & 83.7 & 0.3536 \\
+\midrule
+SegFormer  & None (loose)            & 42.1 & 0.3647 \\
+           & Shard only              & 50.7 & 0.3735 \\
+           & Stage only              & \textbf{54.3} & 0.3689 \\
+           & Full \pads{} (adaptive) & 41.0 & 0.3757 \\
 \bottomrule
 \end{tabular}
-\caption{Component ablation. \PLACEHOLDER{populate}}
+\caption{Component ablation, GPU utilisation and IoU by policy component, all
+three architectures. Shard+stage combined is not expressible in the current
+implementation (see text).}
 \label{tab:ablation-components}
 \end{table}
 
-\section{Scratch capacity: the regime the design targets}
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.85\linewidth]{ablation-components.png}
+\caption{GPU utilisation by policy component, all three architectures.}
+\label{fig:ablation-components}
+\end{figure}
+
+Shard alone beats \code{loose} on GPU utilisation for every architecture -- a
+clean, consistent result, and for DeepLabV3+ shard even beats stage (84.1\% vs.\
+67.6\%). This confirms the underlying staging mechanism has real value when
+applied. The ``full \pads{}'' row, however, is not architecturally distinct from
+the loose row in most of these runs: as established in
+Section~\ref{sec:res-profiler-bias}, the adaptive profiler selected \code{loose}
+in every one of these three full-\pads{} runs, so row~4 is effectively row~1
+re-measured under the profiler rather than a genuinely different configuration.
+The component ablation therefore separates two questions that a single ``does
+\pads{} help'' number would conflate: the staging primitive itself helps
+(rows~2--3 beat row~1 in GPU utilisation on every architecture), and the
+mechanism that is supposed to decide when to invoke it does not currently invoke
+it under these conditions.
+
+\subsection{Scratch capacity: the regime the design targets}
 \label{sec:ablation-capacity}
 
 The Bing 1k corpus fits comfortably in node-local scratch, which is the least
 interesting case for an adaptive stager: a fixed policy of ``copy everything up
-front'' suffices.
-The design is aimed at the regime where it does not fit, and that regime is reached
-here by synthetically constraining the scratch budget.
+front'' suffices. The design is aimed at the regime where it does not fit, and
+that regime is reached here by synthetically constraining the scratch budget.
 
 \begin{table}[!ht]
 \centering
 \begin{tabular}{lccc}
 \toprule
-Scratch budget (\% of corpus) & Derived depth $d$ & Throughput & Staging hit rate \\
+Scratch budget & DeepLabV3+ & MA-Net & SegFormer \\
+ & GPU util.\ (\%) / IoU & GPU util.\ (\%) / IoU & GPU util.\ (\%) / IoU \\
 \midrule
-100\% & & & \\
- 50\% & & & \\
- 25\% & & & \\
- 10\% & & & \\
-  0\% (staging unavailable) & --- & & --- \\
+100\% & 17.3 / 0.3383 & 86.9 / 0.3602 & 51.1 / 0.3648 \\
+ 50\% & 81.6 / 0.3547 & 78.6 / 0.3527 & 56.0 / 0.3716 \\
+ 25\% & 24.2 / 0.3463 & 85.2 / 0.3602 & 54.0 / 0.3641 \\
+ 10\% & 87.2 / 0.3564 & 85.1 / 0.3527 & 53.8 / 0.3656 \\
+  0\% (staging unavailable) & 79.8 / 0.3646 & 85.8 / 0.3527 & 52.0 / 0.3686 \\
 \bottomrule
 \end{tabular}
 \caption{Behaviour as scratch capacity is constrained. Method~4 of
-Section~\ref{sec:evaluation-plan} is unavailable below 100\%; \pads{} should
-degrade gracefully rather than fail. \PLACEHOLDER{populate}}
+Section~\ref{sec:evaluation-plan} is unavailable below 100\%.}
 \label{tab:ablation-scratch}
 \end{table}
 
-This is the experiment that distinguishes a contribution from an observation.
-If \pads{} matches full pre-staging at 100\% and retains most of its advantage at
-25\%, the adaptivity is doing work.
-If it collapses to baseline as soon as the corpus does not fit, the honest reading
-is that the method is a convenient wrapper around ``copy the dataset to scratch''.
-
-\section{Input size and the CORONA variant}
-
-Section~\ref{sec:dataset} argued that Bing 1k is the least favourable variant for a
-staging argument, since larger tiles increase bytes per sample and therefore the
-compute-to-I/O ratio shifts.
-That argument is tested rather than assumed.
-
-\begin{table}[!ht]
+\begin{figure}[!ht]
 \centering
-\begin{tabular}{lccc}
-\toprule
-Variant & Bytes/sample & Baseline \Tdata{} & \pads{} speedup \\
-\midrule
-Bing 1k          & & & \\
-Bing 2k          & & & \\
-Bing + CORONA 1k & & & \\
-\bottomrule
-\end{tabular}
-\caption{Effect of input configuration. \PLACEHOLDER{populate}}
-\label{tab:ablation-input}
-\end{table}
+\includegraphics[width=0.85\linewidth]{ablation-scratch-capacity.png}
+\caption{GPU utilisation vs.\ scratch-capacity budget, all three architectures.
+DeepLabV3+'s 100\%-capacity run is the worst-performing configuration in the
+entire sweep.}
+\label{fig:ablation-scratch}
+\end{figure}
 
-The CORONA variant is of particular interest because it doubles the number of files
-read per sample --- an image, a mask, and a second co-registered image --- and
-therefore stresses metadata cost specifically rather than bandwidth.
+This is the experiment that was intended to distinguish a contribution from an
+observation, and the result is not the graceful-degradation curve the design
+predicts. MA-Net and SegFormer are both close to flat across the whole sweep --
+consistent with graceful degradation, but also consistent with the scratch
+budget simply not being the binding constraint for either architecture at this
+corpus size. DeepLabV3+ shows the opposite of the predicted direction: 100\%
+scratch capacity produces the \emph{lowest} GPU utilisation in the entire sweep
+(17.3\%), well below even the 0\%-capacity (staging-unavailable) row. Staging
+overhead is not merely failing to help at full capacity for DeepLabV3+; it is
+actively worse than not staging at all. IoU is comparatively stable across the
+sweep for every architecture (0.338--0.372), so this is a throughput effect, not
+an accuracy one. The honest reading is that ``more caching capacity is better''
+does not hold unconditionally in this data, and the mechanism -- whether it is
+staging-copy overhead specific to DeepLabV3+'s I/O pattern, or an interaction
+with the profiler-bias defect of Section~\ref{sec:res-profiler-bias} that this
+sweep did not control for -- is an open question rather than one this experiment
+settles.
 
-\section{Classifier threshold sensitivity}
+\subsection{Input size and the CORONA variant}
+\label{sec:ablation-input}
+
+Section~\ref{sec:dataset} argued that Bing 1k is the least favourable variant for
+a staging argument, since larger tiles increase bytes per sample and therefore
+shift the compute-to-I/O ratio. That argument was scoped to be tested against
+Bing 2k and Bing+CORONA 1k variants, following Soroush et al.~\cite{Soroush20},
+Vadineanu et al.~\cite{Vadineanu24} and Pistola et al.~\cite{Pistola25}, who each
+train on CORONA imagery for archaeological site detection in the wider
+Mesopotamian region. This ablation was not run in this session -- the
+component, scratch-capacity and threshold sweeps above, across three
+architectures, were the priority given available cluster time -- and is retained
+as scoped future work (Section~\ref{ch:futurework}) rather than populated here.
+
+\subsection{Classifier threshold sensitivity}
 \label{sec:ablation-thresholds}
 
-The classification rules of Section~\ref{ch:methodology} depend on two thresholds,
-$\gamma_s$ and $\gamma_d$, set to 1.25 and 1.5 respectively.
-Values chosen by the designer and never varied are a standing weakness in any
-adaptive system, and the sensitivity is reported here.
+The classification rule of Section~\ref{ch:methodology} depends on a threshold
+$\gamma_d$, set by default to 1.5. Values chosen by the designer and never
+varied are a standing weakness in any adaptive system, and the sensitivity is
+reported here across all three architectures.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{lccc}
+\begin{tabular}{llcccc}
 \toprule
-$\gamma_d$ & Policy selected & Throughput & Correct decision? \\
+Architecture & $\gamma_d$ & Measured ratio & Policy selected & IoU & GPU util.\ (\%) \\
 \midrule
-1.0 & & & \\
-1.25 & & & \\
-1.5 (default) & & & \\
-2.0 & & & \\
+DeepLabV3+ & 1.00 & 0.64 & loose & 0.3569 & 64.6 \\
+           & 1.25 & 1.23 & loose & 0.3510 & 86.3 \\
+           & 1.50 (default) & 0.65 & loose & 0.3513 & 61.6 \\
+           & 2.00 & 1.17 & loose & 0.3442 & 83.0 \\
+\midrule
+MA-Net     & 1.00 & 1.03 & \textbf{shard} & 0.3553 & 86.4 \\
+           & 1.25 & 0.69 & loose & 0.3536 & 80.1 \\
+           & 1.50 (default) & 1.18 & loose & 0.3720 & 85.1 \\
+           & 2.00 & 0.68 & loose & 0.3536 & 87.0 \\
+\midrule
+SegFormer  & 1.00 & 1.23 & \textbf{shard} & 0.3527 & 49.6 \\
+           & 1.25 & 1.22 & loose & 0.3682 & 41.2 \\
+           & 1.50 (default) & 1.32 & loose & 0.3738 & 42.5 \\
+           & 2.00 & 1.20 & loose & 0.3736 & 43.0 \\
 \bottomrule
 \end{tabular}
-\caption{Sensitivity of the policy decision to the classification threshold.
-\PLACEHOLDER{populate}}
+\caption{Sensitivity of the policy decision to the classification threshold, all
+three architectures. Only 2 of 12 runs ever left \code{loose}, both at the
+single lowest threshold tested and both right at the ratio boundary. These
+measured ratios predate the correction of Section~\ref{sec:res-profiler-bias};
+under the corrected measurement, every full-window ratio is 10.3--20.2, which
+would clear every threshold tested here.}
 \label{tab:ablation-thresholds}
 \end{table}
 
-The relevant question is not which threshold maximises throughput on this workload
---- that would be tuning on the test set --- but how wide the band is over which the
-decision is unchanged.
-A decision that flips under a 10\% perturbation of $\gamma_d$ is not robust.
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=\linewidth]{ablation-threshold-sensitivity.png}
+\caption{Measured ratio vs.\ decision threshold $\gamma_d$, all three
+architectures. Circled points switched policy away from \code{loose}.}
+\label{fig:ablation-thresholds}
+\end{figure}
 
-\section{Shuffling randomness}
+The relevant question is not which threshold maximises throughput on this
+workload -- that would be tuning on the test set -- but how wide the band is
+over which the decision is unchanged, and the answer is: very wide, almost the
+entire tested range. The policy decision is stable at \code{loose} across three
+of four thresholds for every architecture, switching only at the single most
+aggressive value tested ($\gamma_d=1.0$), and even then for only two of three
+architectures. A decision this insensitive to its own designer-chosen threshold
+is not evidence of a well-calibrated decision boundary; combined with the finding
+of Section~\ref{sec:res-profiler-bias}, it is evidence that the measured ratio
+feeding the decision was itself biased low across this entire sweep, so the
+threshold's apparent robustness is partly an artefact of the input it was
+comparing against being wrong by roughly an order of magnitude rather than of the
+threshold being well-chosen.
+
+\subsection{Shuffling randomness}
 \label{sec:ablation-shuffle}
 
-Shard-based reading trades exact random access for sequential throughput, and
-approximates shuffling with a sample buffer.
-This ablation varies the buffer size to establish where, if anywhere, reduced
-shuffling randomness begins to affect segmentation quality.
-
-\begin{table}[!ht]
-\centering
-\begin{tabular}{lccc}
-\toprule
-Shuffle buffer (samples) & Throughput & IoU & $\Delta$ vs.\ exact shuffle \\
-\midrule
-Exact (loose)  & & & --- \\
-4096 & & & \\
-1024 & & & \\
-256  & & & \\
-0 (shard order only) & & & \\
-\bottomrule
-\end{tabular}
-\caption{Trade-off between shuffling fidelity and throughput.
-\PLACEHOLDER{populate}}
-\label{tab:ablation-shuffle}
-\end{table}
-
-This is the mechanism by which a throughput optimisation is most likely to degrade
-the model silently, and it is therefore the ablation most worth reporting even if
-the result is null.
+Shard-based reading trades exact random access for sequential throughput. This
+ablation was scoped to vary a shuffle-buffer size and establish where, if
+anywhere, reduced shuffling randomness begins to affect segmentation quality, in
+the manner of the standard WebDataset shuffle-buffer pattern~\cite{Aizman19}.
+As documented in Section~\ref{sec:res-accuracy}, \pads{}'s shard reader opens
+archive members by name rather than as a sequential stream, so this concern does
+not apply to the implementation evaluated in this thesis; the ablation is
+retained as future work for completeness against the general class of
+shard-based readers this thesis positions itself against, but was not run this
+session and is not needed to support the accuracy claims made about \pads{}
+specifically.

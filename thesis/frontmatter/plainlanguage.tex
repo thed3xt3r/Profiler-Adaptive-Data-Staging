@@ -1,0 +1,44 @@
+\section*{Plain Language Summary}
+
+Archaeologists studying the plains of southern Iraq look for ancient mounds,
+called tells, that mark the sites of settlements abandoned thousands of years
+ago. Because these mounds are visible in satellite photographs, researchers
+have started training computer programs to spot them automatically, saving
+archaeologists from having to scan enormous stacks of imagery by eye. Training
+such a program means feeding it thousands of small image files, over and over,
+on a shared supercomputer built for exactly this kind of large computation.
+
+The intuitive assumption is that the expensive graphics chip doing the actual
+learning is the part that takes the most time, so that is where effort to speed
+things up usually goes. This thesis shows that assumption is often wrong for
+this kind of work. The real slowdown was frequently the plumbing: fetching
+thousands of individual image files, one at a time, from a storage system that
+is shared by everyone on the supercomputer at once. The expensive chip sat
+idle, waiting for files, far more often than it sat busy computing.
+
+To address this, the thesis builds a smarter file-loading system that watches
+its own behaviour for a few seconds at the start of a training run and decides,
+automatically, how best to supply data for the rest of that run: read files one
+by one as before, bundle them into larger packages that are faster to read
+sequentially, or copy the whole dataset onto fast local storage ahead of time.
+Because the order in which files will be needed is known in advance, the system
+can prepare data before it is asked for, rather than reacting after the fact.
+
+Testing this system across three different AI models revealed two things. The
+underlying idea works: when the smarter file-handling was actually used, the
+expensive chip sat idle far less often, sometimes cutting waiting time by more
+than half. But the automatic decision-maker itself was miscalibrated: it made
+its judgement from a handful of very first measurements taken at the start of a
+run, before some one-off start-up costs had settled down, and those inflated
+measurements made ordinary file loading look faster than it really was. As a
+result, the system kept choosing the plain, unoptimised approach almost every
+time, even when a better one was available and demonstrably worked. This
+thesis traces that miscalibration to its exact cause and shows that simply
+ignoring the first few, skewed measurements restores accurate decision-making
+at essentially no extra cost.
+
+The broader lesson extends beyond archaeology: on shared supercomputers,
+training large AI models is frequently limited by how efficiently data can be
+delivered rather than by the model itself, and any system that tries to tune
+itself automatically must be built carefully enough not to be fooled by its own
+start-up noise.

@@ -1,7 +1,7 @@
 %% ============================================================================
-\chapter{Reproduction of the Reference Configuration}
+\section{Reproduction of the Reference Configuration}
 \label{app:reproduction}
-\addcontentsline{lot}{chapter}{Reproduction of the Reference Configuration}
+\addcontentsline{lot}{section}{Reproduction of the Reference Configuration}
 %% ============================================================================
 
 This appendix documents an independent reproduction of the reference configuration
@@ -14,7 +14,7 @@ Second, the reproduction surfaced a set of pipeline defects
 (Appendix~\ref{app:defects}) and one instructive environmental sensitivity, both of
 which bear on how the primary results should be read.
 
-\section{Environment}
+\subsection{Environment}
 
 Reproduction was performed on an NVIDIA RTX~3050 Laptop GPU (4~GB VRAM,
 driver 566.07), 8 logical CPU cores and 15.7~GB system RAM, running
@@ -29,7 +29,8 @@ $4{,}934 - 200 = 4{,}734$, i.e. the top-200-by-area removal applied but not the
 The applicable reference figure is therefore Model~1 of
 Table~\ref{tab:casini-reference}, $74.17 \pm 0.38$.
 
-\section{Faithfulness of the port}
+\subsection{Faithfulness of the port}
+\label{sec:repro-faithfulness}
 
 The reference implementation was ported directly rather than reimplemented.
 The following were held identical to the published notebook: MA-Net with an
@@ -48,12 +49,12 @@ The published notebook targets PyTorch Lightning 1.x, whose
 \code{training\_epoch\_end} and \code{validation\_epoch\_end} hooks were removed in
 2.x; per-epoch aggregation was therefore reimplemented explicitly.
 The \code{A.Flip} transform has since been removed from \code{albumentations};
-its semantics --- selecting one of \{vertical, horizontal, both\} uniformly, rather
-than applying two independent flips --- were reproduced explicitly and verified
+its semantics - selecting one of \{vertical, horizontal, both\} uniformly, rather
+than applying two independent flips - were reproduced explicitly and verified
 empirically over 4{,}000 samples, yielding 0.752 no-flip and 0.089 / 0.084 / 0.075
 for the three flip modes against an expected 0.750 / 0.083 each.
 
-\section{Result and the batch-size constraint}
+\subsection{Result and the batch-size constraint}
 \label{sec:repro-result}
 
 Under this configuration the reproduction attained an IoU of
@@ -67,7 +68,7 @@ Measured peak allocation for MA-Net/EfficientNet-B3 at $256 \times 256$ in fp32 
 card; at half precision, batch 32 requires 4.94~GB and therefore also does not fit.
 Batch 32 is thus unreachable on this hardware at any precision.
 The reproduction used batch 8 with gradient accumulation $\times 4$, which preserves
-the effective batch --- and hence the gradient signal --- but leaves batch
+the effective batch - and hence the gradient signal - but leaves batch
 normalisation estimating its statistics from 8 samples per forward pass rather
 than 32.
 
@@ -84,7 +85,73 @@ The workstation environment is used for development, defect analysis and
 instrumentation work, for which it is adequate, and not for any claim about
 segmentation quality.
 
-\section{Metric reduction}
+\subsection{Closing the gap: full-protocol replication on the cluster}
+\label{sec:repro-closure}
+
+The batch-size hypothesis of Section~\ref{sec:repro-result} was tested directly
+rather than left as an inference from BatchNorm theory. A from-scratch replica,
+\code{casini\_reference}, was built independently of both the workstation port
+above and the main \pads{} pipeline evaluated in Sections~\ref{ch:results}
+and~\ref{ch:ablation}, for the specific purpose of isolating implementation
+differences from a genuine reproducibility gap. It was run on the cluster at the
+reference's full protocol: batch size 32, 20 epochs with no early stopping,
+final-epoch weights, and ten independent test-set passes -- for all three
+architectures used elsewhere in this thesis, not MA-Net alone.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Architecture & Test IoU (mean, 10 passes) & Range \\
+\midrule
+DeepLabV3+ & 0.728 & 0.722--0.732 \\
+SegFormer  & 0.733 & 0.725--0.739 \\
+MA-Net     & 0.735 & 0.729--0.742 \\
+\midrule
+Reference (Casini et al., Model~1) & \textbf{0.7417} & $\pm 0.0038$ \\
+\bottomrule
+\end{tabular}
+\caption{Full-protocol replica results, all three architectures, against the
+reference figure. Standard deviation across the ten test passes was 0.003--0.004
+for each architecture -- tight enough that the result is not an artefact of a
+favourable single run.}
+\label{tab:repro-full}
+\end{table}
+
+All three architectures land within 1--1.4 percentage points of the reference
+figure. This closes the gap the workstation reproduction could not: the earlier
+result (0.4470, then 0.4504 under the reference's own metric convention -- see
+Section~\ref{sec:repro-metric}) was constrained by batch size 8, and the
+diagnosis in Section~\ref{sec:repro-result} is confirmed directly rather than
+only by analogy to published BatchNorm sensitivity results. It also settles a
+question that diagnosis alone could not: whether a correct batch size on its own
+would be sufficient, or whether some other, unidentified defect was also
+contributing. It was sufficient -- once batch size, the full epoch budget, and
+final-epoch (rather than early-stopped) weights were all restored together, no
+further correction was needed to reach reference-comparable accuracy on any of
+the three architectures.
+
+This result is the basis for the caveat in Section~\ref{sec:res-accuracy}: the
+main \pads{} pipeline's IoU figures throughout Sections~\ref{ch:results}
+and~\ref{ch:ablation} (clustering around 0.32--0.40) are not this workload's
+ceiling. They reflect a pipeline that, independently of the batch-size question
+addressed here, differs from both the reference and this appendix's own replica
+in two further respects: an \code{IoU} averaging convention that pools
+confusion-matrix counts across the validation split rather than averaging
+per-image (Section~\ref{sec:repro-metric} quantifies a 3.7-point effect from this
+alone on one checkpoint), and a flip-augmentation implementation that applies two
+independent single-axis flips rather than the reference's \code{A.Flip}
+semantics (Section~\ref{sec:defect-augmentation}, Appendix~\ref{app:defects}).
+Both are properties of \code{PADS/*/model.py} and \code{PADS/*/dataset.py}
+specifically, not of this appendix's already-faithful port or of
+\code{casini\_reference}; neither pipeline used to produce
+Table~\ref{tab:repro-full} exhibits either defect. The two effects are not
+individually large enough to explain the full gap between $\sim$0.35 and
+$0.73$--$0.74$ on their own, and combined with an abbreviated training protocol
+(early stopping rather than a fixed 20 epochs, in the main pipeline's evaluation
+runs) they account for the remainder.
+
+\subsection{Metric reduction}
 \label{sec:repro-metric}
 
 The reduction convention accounts for a material part of the difference between
@@ -110,16 +177,16 @@ perfect match.}
 
 Two hypotheses about the metric were tested and rejected.
 Excluding the empty tiles entirely changes pooled IoU by $0.001$, because they
-contribute only 0.8\% of false positives --- the model classifies 102 of 104 empty
+contribute only 0.8\% of false positives - the model classifies 102 of 104 empty
 tiles perfectly.
 Sweeping the decision threshold over $\{0.2, \dots, 0.7\}$ confirms $0.5$ is optimal,
 so the reported figure is not an artefact of a poorly chosen operating point.
 
-\section{Error structure}
+\subsection{Error structure}
 
 The aggregate figure conceals a strongly bimodal error distribution.
-On the validation split, per-image IoU has a 90th percentile of $0.785$ --- at
-reference level --- while 35.3\% of tiles score below $0.1$.
+On the validation split, per-image IoU has a 90th percentile of $0.785$ - at
+reference level - while 35.3\% of tiles score below $0.1$.
 Performance is strongly monotonic in the fraction of the crop occupied by the site
 (Table~\ref{tab:by-area}).
 

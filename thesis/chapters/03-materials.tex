@@ -1,10 +1,10 @@
 %% ============================================================================
-\chapter{Materials and Datasets}
+\section{Materials and Datasets}
 \label{ch:materials}
-\addcontentsline{lot}{chapter}{Materials and Datasets}
+\addcontentsline{lot}{section}{Materials and Datasets}
 %% ============================================================================
 
-\section{Overview}
+\subsection{Overview}
 
 This chapter describes the data and the model architectures used throughout the
 thesis.
@@ -18,14 +18,14 @@ file size distribution and access pattern (Section~\ref{sec:io-workload}).
 The second characterisation is the one that motivates \pads{}, and it is the one
 usually left implicit in the segmentation literature.
 
-\section{Dataset: Casini et al. (2023)}
+\subsection{Dataset: Casini et al. (2023)}
 \label{sec:dataset}
 
 The main experiments use the dataset introduced by Casini et al.~\cite{Casini23},
 which addresses semantic segmentation and detection of mounded archaeological sites
---- tells --- across the southern Mesopotamian floodplain in Iraq.
+- tells - across the southern Mesopotamian floodplain in Iraq.
 
-\subsection{Provenance and construction}
+\subsubsection{Provenance and construction}
 
 The dataset originates from a corpus of geo-referenced vector shapes corresponding
 to the contours of known mound sites within the survey area of the Floodplains
@@ -64,8 +64,8 @@ The task is therefore binary: one class for mounded sites, one for everything el
 
 Two spatial configurations were produced: $L = 1000$~m (``1k'') and $L = 2000$~m
 (``2k'').
-Imagery was exported at approximately 1 pixel per metre --- 1024~px for 1000~m, and
-double that for the larger extent --- and subsequently downscaled by a factor of two
+Imagery was exported at approximately 1 pixel per metre - 1024~px for 1000~m, and
+double that for the larger extent - and subsequently downscaled by a factor of two
 to reduce computational cost, which the original authors report as having low impact
 on accuracy.
 At training time a square of side $L/2$ is randomly cropped from the exported tile;
@@ -74,7 +74,7 @@ appear at the image centre, and acts as data augmentation.
 Further augmentation consists of random rotation, mirroring, and small shifts in
 brightness and contrast, resampled at each training iteration.
 
-Finally, 1{,}155 images with empty masks --- containing no site to predict --- were
+Finally, 1{,}155 images with empty masks - containing no site to predict - were
 added, sampled from locations proposed by the archaeologists: highly urbanised
 areas, intensive agriculture, flood-prone terrain such as artificial lakes and
 basins, and rocky hills and mountains.
@@ -92,30 +92,38 @@ after the 1970s were excluded from that analysis.
 \paragraph{Dataset variant used in this thesis.}
 All experiments reported here use the Bing 1k configuration unless otherwise stated.
 This choice is deliberate: the 1k configuration is the smallest of the published
-variants and therefore the least favourable to a data-staging argument --- a
+variants and therefore the least favourable to a data-staging argument - a
 pipeline that is I/O-bound on 1k tiles will be at least as I/O-bound on 2k tiles or
 on the CORONA-augmented input.
-Chapter~\ref{ch:ablation} revisits the larger input configurations.
+Section~\ref{ch:ablation} revisits the larger input configurations.
 
-\subsection{Class imbalance}
+\subsubsection{Class imbalance}
 
 The segmentation target is severely imbalanced: mound pixels constitute a small
 minority of any given tile, and 1{,}155 of the 5{,}025 tiles contain no positive
 pixels at all.
 Direct measurement over the corpus used here gives a mean positive-pixel fraction of
 approximately 9.6\% per site-bearing tile, with a median near 7\%.
-The masks themselves are cleanly binary --- 90.4\% of mask pixels take the
+The masks themselves are cleanly binary - 90.4\% of mask pixels take the
 background value and 8.8\% the foreground value, with only 0.7\% at intermediate
-values --- so label ambiguity at object boundaries is not a material source of error.
+values - so label ambiguity at object boundaries is not a material source of error.
 
 This imbalance is the reason the original work adopts focal loss~\cite{Lin17} over
 Dice loss, and the reason the primary reported metric is IoU rather than pixel
 accuracy.
+Focal loss is one of several loss functions purpose-built for class imbalance in
+segmentation; Azad et al.~\cite{Azad23} survey twenty-five such loss functions and
+describe focal loss's reweighting term as reducing the loss contribution of
+easily-classified samples relative to hard-to-classify ones.
+In a tile that is 90\% background, as here, the great majority of easily-classified
+pixels are background, so this reweighting acts as an implicit foreground
+up-weighting -- though the survey states the mechanism in general easy/hard terms,
+not specifically in terms of this dataset's class split.
 It is also, importantly for this thesis, the reason the workload is decode-heavy
 relative to its useful signal: a substantial fraction of the bytes read from the
 filesystem contribute nothing but negative pixels.
 
-\subsection{Evaluation metrics}
+\subsubsection{Evaluation metrics}
 
 The original paper evaluates using intersection-over-union at the pixel level, and
 accuracy, precision, recall and the Matthews correlation coefficient at the
@@ -155,7 +163,7 @@ contribute perfect scores.
 All comparisons in this thesis therefore state which reduction is used.
 Section~\ref{sec:repro-metric} quantifies the difference.
 
-\subsection{Reference results}
+\subsubsection{Reference results}
 
 Casini et al. report the IoU scores in Table~\ref{tab:casini-reference} on the
 held-out test set.
@@ -196,10 +204,10 @@ First, they establish an accuracy floor: any optimisation to the data pipeline
 proposed in this thesis must be shown not to degrade segmentation quality relative
 to this reference.
 Second, the observation that architectural choice moves IoU by only a few points
-motivates the framing of this work --- if the model is not where the remaining
+motivates the framing of this work - if the model is not where the remaining
 headroom is, the pipeline may be.
 
-\section{The dataset as an I/O workload}
+\subsection{The dataset as an I/O workload}
 \label{sec:io-workload}
 
 The above is the standard description of the dataset.
@@ -224,7 +232,7 @@ The relevant properties are:
     a property of the dataset alone but of concurrent jobs on the cluster, and is
     therefore non-stationary across a run.
   \item[Deterministic access order.] Once the epoch permutation is fixed, the
-    sequence of samples --- and hence of files --- is known in advance.
+    sequence of samples - and hence of files - is known in advance.
     Future data access is predictable, which is precisely the precondition that
     makes proactive prefetching and shard staging exact rather than speculative.
 \end{description}
@@ -234,14 +242,14 @@ The dataset is small enough to fit on node-local scratch and its access pattern 
 known ahead of time; the fact that the baseline pipeline nonetheless leaves the GPU
 idle is a property of the loader, not of the data.
 
-\section{Models}
+\subsection{Models}
 
 Three segmentation architectures are used, spanning a CNN encoder--decoder, an
 attention-augmented CNN, and a transformer.
 All three were trained under an identical data pipeline so that pipeline effects can
 be isolated from architectural effects.
 
-\subsection{MA-Net}
+\subsubsection{MA-Net}
 
 MA-Net (Multi-scale Attention Network)~\cite{Fan20} extends the U-Net
 encoder--decoder with a self-attention mechanism inserted in the latent space,
@@ -253,7 +261,7 @@ Casini et al., and therefore constitutes the reproduction baseline for this thes
 Implementation: \code{segmentation\_models\_pytorch}~\cite{Iakubovskii19} with an
 EfficientNet-B3~\cite{Tan19} encoder pretrained on ImageNet~\cite{Deng09}.
 
-\subsection{DeepLabV3+}
+\subsubsection{DeepLabV3+}
 
 DeepLabV3+~\cite{Chen18} uses atrous (dilated) convolution and atrous spatial
 pyramid pooling to capture multi-scale context without loss of spatial resolution,
@@ -262,7 +270,7 @@ It is included as a widely used, high-capacity CNN baseline and represents the
 heaviest of the three in both parameter count and per-step GPU time.
 Implementation: \code{segmentation\_models\_pytorch} with a ResNet-50 encoder.
 
-\subsection{SegFormer}
+\subsubsection{SegFormer}
 
 SegFormer~\cite{Xie21} pairs a hierarchical, positional-encoding-free transformer
 encoder with a lightweight all-MLP decoder.
@@ -272,13 +280,18 @@ configuration in which data-loading stalls are most exposed.
 Implementation: the NVlabs reference architecture as distributed through the
 HuggingFace \code{transformers} library.
 
-\subsection{Measured characteristics (Bing 1k, default loader)}
+\subsubsection{Measured characteristics (Bing 1k, default loader)}
 \label{sec:measured-baseline}
 
 Table~\ref{tab:baseline-default} reports measurements on the Iris cluster on a
 single V100 with the baseline PyTorch \code{DataLoader} at default settings, and
 Table~\ref{tab:baseline-tuned} the same with loader parameters tuned
-(\code{num\_workers=4}, \code{pin\_memory=True}).
+(\code{num\_workers=4}, \code{pin\_memory=True}). These figures were recollected
+in full for this thesis (Section~\ref{ch:results}, Table~\ref{tab:rq1-loader-util}
+reports the same underlying runs); an earlier draft of this section used numbers
+from a prior, smaller measurement campaign that this table now supersedes, since
+the two disagreed once the full evaluation was collected -- notably on the
+direction of SegFormer's IoU change under tuning, not only its magnitude.
 
 \begin{table}[!ht]
 \centering
@@ -288,14 +301,15 @@ Table~\ref{tab:baseline-tuned} the same with loader parameters tuned
 \midrule
 Trainable parameters & 3.7\,M & 17.2\,M & 26.7\,M \\
 Model size (MB)      & 15     & 68      & 106 \\
-IoU (\%)             & 67     & 68      & 35.9 \\
-Epochs               & 34     & 21      & 46 \\
+IoU                  & 0.3974 & 0.3440 & 0.3240 \\
+Epoch reached         & 36     & 12      & 2 \\
 Batch size           & 32     & 32      & 32 \\
-CPU time (s)         & 3.922  & 4.512   & 4.639 \\
-GPU time (ms)        & 416.305 & 644.360 & 830.446 \\
+GPU utilisation (\%) & 16.0   & 34.4    & 33.6 \\
 \bottomrule
 \end{tabular}
-\caption{Baseline characteristics with the default PyTorch \code{DataLoader}.}
+\caption{Baseline characteristics with the default PyTorch \code{DataLoader}
+(\code{num\_workers=0}). IoU is the main-pipeline pooled convention
+(Section~\ref{sec:repro-metric}), not the reference-comparable per-image mean.}
 \label{tab:baseline-default}
 \end{table}
 
@@ -307,11 +321,10 @@ GPU time (ms)        & 416.305 & 644.360 & 830.446 \\
 \midrule
 Trainable parameters & 3.7\,M & 17.2\,M & 26.7\,M \\
 Model size (MB)      & 15     & 68      & 106 \\
-IoU (\%)             & 67     & 73      & 43 \\
-Epochs               & 34     & 22      & 43 \\
+IoU                  & 0.3725 & 0.3695 & 0.3560 \\
+Epoch reached         & 28     & 36      & 28 \\
 Batch size           & 32     & 32      & 32 \\
-CPU time (s)         & 3.922  & 4.737   & 5.245 \\
-GPU time (ms)        & 416.305 & 623.832 & 910.236 \\
+GPU utilisation (\%) & 40.5   & 85.1    & 82.6 \\
 \bottomrule
 \end{tabular}
 \caption{Characteristics with loader parameters tuned
@@ -319,17 +332,23 @@ GPU time (ms)        & 416.305 & 623.832 & 910.236 \\
 \label{tab:baseline-tuned}
 \end{table}
 
-Two observations from these tables set up Chapter~\ref{ch:methodology}.
-First, the ratio of CPU time to GPU time per step is large enough across all three
-architectures that the data path is a plausible bottleneck rather than a rounding
-error.
-Second, merely changing two loader flags moves MA-Net IoU by five points and
-DeepLabV3+ by seven --- a swing comparable in magnitude to the entire architectural
-search in the original paper.
-That the loader configuration is competitive with the architecture choice as a
-source of variation is the empirical hook for this work.
+Two observations from these tables set up Section~\ref{ch:methodology}, and the
+second is more precisely stated here than an earlier draft had it. First, GPU
+utilisation moves by 24--51 percentage points between the two tables depending
+on architecture -- large enough, together with the per-stage timing breakdown of
+Section~\ref{sec:res-rq1}, that the data path is a plausible bottleneck rather
+than a rounding error. Second, the same two loader flags do \emph{not} move IoU
+by a consistent, large margin: DeepLabV3+ gains 3.2 points and MA-Net 2.6, but
+SegFormer \emph{loses} 2.5 -- mixed in direction and modest in magnitude next to
+the reference study's architectural search, not comparable to it. The empirical
+hook for this work is therefore not that loader configuration rivals
+architecture choice as a lever on accuracy; the data below does not support that
+claim. It is that loader configuration is where this workload's throughput
+headroom demonstrably sits, independent of what it does or does not do to IoU,
+and that headroom is worth pursuing on its own terms
+(Section~\ref{ch:conclusions} returns to this distinction directly).
 
-\section{Hardware and software environment}
+\subsection{Hardware and software environment}
 
 All primary experiments were run on the Iris cluster at the University of
 Luxembourg, on GPU nodes equipped with NVIDIA V100 accelerators, scheduled via
@@ -345,7 +364,7 @@ A secondary, single-GPU workstation environment (NVIDIA RTX~3050 Laptop, 4~GB) w
 used for development, defect analysis and reproduction work.
 Appendix~\ref{app:reproduction} documents that environment and, importantly, the
 respects in which results obtained on it are \emph{not} comparable to the cluster
-results reported above --- most consequentially the accelerator memory limit, which
+results reported above - most consequentially the accelerator memory limit, which
 forbids the batch size of 32 used throughout the primary experiments and thereby
 degrades batch-normalisation statistics.
 That constraint is the reason all accuracy figures in this thesis are drawn from the

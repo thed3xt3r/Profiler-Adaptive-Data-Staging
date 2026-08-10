@@ -2,20 +2,25 @@
 %% Profiler-Adaptive Data Staging for Large-Scale Satellite-Image Segmentation
 %% Master's thesis -- main document
 %%
+%% Structure follows the University of Luxembourg HPC master-thesis template
+%% (master-thesis-template/rapport.tex): article class, section-level chapters,
+%% Declaration of Authorship / Abstract / Plain Language Summary / Acknowledgments
+%% front matter, acm bibliography style.
+%%
 %% Build:  pdflatex main && bibtex main && pdflatex main && pdflatex main
 %% ===========================================================================
-\documentclass[11pt,oneside,a4paper,openright]{book}
+\documentclass[10pt,a4paper]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
 
-\usepackage{titlesec}
-\usepackage{etoc}
+\usepackage[a4paper,margin=2.9cm,inner=3.4cm]{geometry}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{url}
 \usepackage{graphicx}
+\usepackage{epstopdf}
 \usepackage[export]{adjustbox}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -23,7 +28,8 @@
 \usepackage{multirow}
 \usepackage{listings}
 \usepackage{xcolor}
-\usepackage{hyperref}
+\usepackage{pdfpages}
+\usepackage[hidelinks]{hyperref}
 \hypersetup{
     colorlinks=true,
     linkcolor=cyan,
@@ -31,16 +37,7 @@
     citecolor=cyan
 }
 
-\usepackage[margin=2.9cm,inner=3.4cm]{geometry}
-
-%% Chapter heading style. (The sample thesis used \chaptertitlefont, which is not
-%% a titlesec command and is undefined under this toolchain.)
-\titleformat{\chapter}[display]
-  {\normalfont\Large\bfseries}{\chaptertitlename\ \thechapter}{16pt}{\Large}
-\titleformat{name=\chapter,numberless}[display]
-  {\normalfont\Large\bfseries}{}{0pt}{\Large}
-
-\pagenumbering{arabic}
+\graphicspath{{figures/}}
 
 %% --- convenience macros ------------------------------------------------
 \newcommand{\Tdata}{\ensuremath{T_{\text{data}}}}
@@ -52,7 +49,12 @@
 
 %% Marks a claim that is not yet backed by a completed experiment.
 %% Remove every occurrence before submission.
-\newcommand{\PLACEHOLDER}[1]{\textcolor{red}{[\textbf{TO MEASURE:} #1]}}
+\newcommand{\PLACEHOLDER}[1]{\textit{To be measured: #1}}
+
+\newcommand\blankpage{
+    \null
+    \thispagestyle{empty}
+    \newpage}
 
 \lstset{
   basicstyle=\ttfamily\footnotesize,
@@ -67,22 +69,46 @@
 
 \begin{document}
 
+\pagenumbering{roman}
+
 %% ---------------------------------------------------------------- front
 \input{frontmatter/titlepage}
-\newpage\null\thispagestyle{empty}\newpage
 
+\blankpage
 \input{frontmatter/declaration}
-\input{frontmatter/acknowledgements}
+\addcontentsline{toc}{section}{Declaration of Authorship}
+
+\newpage
+\blankpage
 \input{frontmatter/abstract}
+\addcontentsline{toc}{section}{Abstract}
 
-\addcontentsline{toc}{chapter}{Contents}
-\tableofcontents\newpage
+\newpage
+\blankpage
+\input{frontmatter/plainlanguage}
+\addcontentsline{toc}{section}{Plain Language Summary}
 
-\addcontentsline{toc}{chapter}{List of Figures}
+\newpage
+\blankpage
+\input{frontmatter/acknowledgements}
+\addcontentsline{toc}{section}{Acknowledgements}
+
+\newpage
+\blankpage
+\input{frontmatter/abbreviations}
+\addcontentsline{toc}{section}{Abbreviations}
+
+\newpage
+\tableofcontents
+\newpage
+
+\addcontentsline{toc}{section}{List of Figures}
 \listoffigures\newpage
 
-\addcontentsline{toc}{chapter}{List of Tables}
+\addcontentsline{toc}{section}{List of Tables}
 \listoftables\newpage
+
+\pagenumbering{arabic}
 
 %% ---------------------------------------------------------------- body
 \input{chapters/01-introduction}
@@ -95,8 +121,8 @@
 \input{chapters/08-futurework}
 
 %% ---------------------------------------------------------------- back
-\addcontentsline{toc}{chapter}{Bibliography}
-\bibliographystyle{abbrv}
+\newpage
+\bibliographystyle{acm}
 \bibliography{references}
 \newpage
 

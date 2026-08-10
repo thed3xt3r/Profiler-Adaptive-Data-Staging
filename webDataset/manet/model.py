@@ -1,105 +1,45 @@
-import torch
-import pytorch_lightning as pl
-import segmentation_models_pytorch as smp
-from torchmetrics import Accuracy, Precision, Recall, JaccardIndex
+"""Re-exports the real ArcheoModel from PADS/manet/model.py instead of
+carrying a fourth stale copy of the model/loss/metric definitions.
 
+This matters for correctness, not just DRY: evaluation method 3 (WebDataset)
+is only a valid comparison against methods 1/2/5 if the model, loss and
+metrics are byte-identical and only the data path differs (Section
+evaluation-plan's own stated principle). Importing the same model.py PADS
+itself trains with -- already updated with precision/recall/MCC -- guarantees
+that rather than hoping a hand-maintained duplicate stays in sync.
 
-class ArcheoModel(pl.LightningModule):
-    """Lightning module for archaeological site segmentation (baseline)"""
-    
-    def __init__(self, arch, encoder_name, in_channels, out_classes, config, **kwargs):
-        super().__init__()
-        self.config = config
-        self.model = smp.create_model(
-            arch, encoder_name=encoder_name, in_channels=in_channels, 
-            classes=out_classes, **kwargs
-        )
-        params = smp.encoders.get_preprocessing_params(encoder_name)
-        self.register_buffer("std", torch.tensor(params["std"]).view(1, 3, 1, 1))
-        self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
-        
-        if config["loss"] == "jaccard":
-            self.loss_fn = smp.losses.JaccardLoss(smp.losses.BINARY_MODE, from_logits=True)
-        elif config["loss"] == "dice":
-            self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
-        elif config["loss"] == "focal":
-            self.loss_fn = smp.losses.FocalLoss(mode=smp.losses.BINARY_MODE)
+Previously this file carried its own full ArcheoModel definition, still on
+the old pytorch_lightning package (not lightning.pytorch) and with no
+sys.path insertion for fsop_monitor.py -- both a correctness gap (silently
+training a possibly-stale model, unlike DeepLab/SegFormer's WebDataset
+scripts which already re-exported) and the direct cause of a
+ModuleNotFoundError: no module named 'fsop_monitor' once train.py started
+importing FSOpCounter for RQ2.
 
-        # Metrics — binary, threshold 0.5
-        metric_kwargs = dict(task="binary", threshold=0.5)
-        self.train_iou = JaccardIndex(**metric_kwargs)
-        self.train_acc = Accuracy(**metric_kwargs)
+Loaded via importlib with an explicit file path and a non-"model" module
+name, not via sys.path + `import model`: this file is ALSO named model.py,
+so a plain `import model` after a sys.path.insert would resolve to this
+already-executing module (sys.modules caches it under the name "model")
+instead of PADS/manet/model.py -- a self-import, not the intended one.
+"""
+import importlib.util
+import os
+import sys
 
-        self.val_iou = JaccardIndex(**metric_kwargs)
-        self.val_acc = Accuracy(**metric_kwargs)
+_PADS_MANET_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), "PADS", "manet")
 
-        self.test_iou = JaccardIndex(**metric_kwargs)
-        self.test_acc = Accuracy(**metric_kwargs)
+# gpu_monitor.py / fsop_monitor.py (imported separately by train.py) live
+# alongside the real model.py; put PADS/manet on sys.path too so that plain
+# import finds them.
+if _PADS_MANET_DIR not in sys.path:
+    sys.path.insert(0, _PADS_MANET_DIR)
 
-    def forward(self, image):
-        image = (image - self.mean) / self.std
-        mask = self.model(image)
-        return mask
+_spec = importlib.util.spec_from_file_location(
+    "pads_manet_model", os.path.join(_PADS_MANET_DIR, "model.py")
+)
+_pads_manet_model = importlib.util.module_from_spec(_spec)
+sys.modules["pads_manet_model"] = _pads_manet_model
+_spec.loader.exec_module(_pads_manet_model)
 
-    def shared_step(self, batch, stage):
-        image = batch[0]
-        assert image.ndim == 4
-        h, w = image.shape[2:]
-        assert h % 32 == 0 and w % 32 == 0
-        
-        mask = batch[1]
-        assert mask.ndim == 4
-        assert mask.max() <= 1.0 and mask.min() >= 0
-        
-        logits_mask = self.forward(image)
-        loss = self.loss_fn(logits_mask, mask)
-        
-        # Predictions: sigmoid + threshold
-        prob_mask = logits_mask.sigmoid()
-        pred_mask = (prob_mask > 0.5).long()
-        
-        # Squeeze channel dim for metrics: (B, 1, H, W) -> (B, H, W)
-        pred_flat = pred_mask.squeeze(1)
-        mask_flat = mask.squeeze(1).long()
-        
-        if stage == "train":
-            self.train_iou(pred_flat, mask_flat)
-            self.train_acc(pred_flat, mask_flat)
-            self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True,
-                     batch_size=self.config["batch_size"])
-            self.log("train/iou", self.train_iou, on_step=False, on_epoch=True, prog_bar=True,
-                     batch_size=self.config["batch_size"])
-            self.log("train/acc", self.train_acc, on_step=False, on_epoch=True,
-                     batch_size=self.config["batch_size"])
-        elif stage == "valid":
-            self.val_iou(pred_flat, mask_flat)
-            self.val_acc(pred_flat, mask_flat)
-            self.log("valid/loss", loss, on_step=False, on_epoch=True, prog_bar=True,
-                     batch_size=self.config["batch_size"])
-            self.log("valid/iou", self.val_iou, on_step=False, on_epoch=True, prog_bar=True,
-                     batch_size=self.config["batch_size"])
-            self.log("valid/acc", self.val_acc, on_step=False, on_epoch=True,
-                     batch_size=self.config["batch_size"])
-        elif stage == "test":
-            self.test_iou(pred_flat, mask_flat)
-            self.test_acc(pred_flat, mask_flat)
-            self.log("test/loss", loss, on_step=False, on_epoch=True,
-                     batch_size=self.config["batch_size"])
-            self.log("test/iou", self.test_iou, on_step=False, on_epoch=True,
-                     batch_size=self.config["batch_size"])
-            self.log("test/acc", self.test_acc, on_step=False, on_epoch=True,
-                     batch_size=self.config["batch_size"])
-
-        return {"loss": loss}
-
-    def training_step(self, batch, batch_idx):
-        return self.shared_step(batch, "train")            
-
-    def validation_step(self, batch, batch_idx):
-        return self.shared_step(batch, "valid")
-
-    def test_step(self, batch, batch_idx):
-        return self.shared_step(batch, "test")  
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.config["learning_rate"])
+ArcheoModel = _pads_manet_model.ArcheoModel

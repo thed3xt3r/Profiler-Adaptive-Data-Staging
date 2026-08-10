@@ -73,11 +73,20 @@ export PYTHONUNBUFFERED=1
 # compiled against NumPy 1.x's C-API (scikit-learn, wandb, etc.) with errors
 # like "numpy.dtype size changed" or "np.float_ was removed in NumPy 2.0".
 # Re-pin it before every run so this can't happen again on any node.
-echo "Ensuring compatible NumPy (<2) in .pylibs..."
-apptainer exec \
+echo "Checking NumPy in .pylibs..."
+# Read-only check, NOT a write -- see ops/fix_numpy_abi.slurm for why this no
+# longer reinstalls into .pylibs on every job (a concurrent write here can
+# corrupt a DIFFERENT job's in-progress numpy import).
+NUMPY_CHECK=$(apptainer exec \
     --bind "${HOME}/Thesis:/workspace" \
     "${SIF}" \
-    pip install --target /workspace/.pylibs "numpy<2" --upgrade --quiet
+    python -c "import numpy; print(numpy.__version__)" 2>&1) || true
+case "${NUMPY_CHECK}" in
+    1.*) echo "  numpy ${NUMPY_CHECK} OK" ;;
+    *)   echo "ERROR: numpy in .pylibs is not a healthy 1.x install (got: ${NUMPY_CHECK})"
+         echo "       Fix it once: sbatch ops/fix_numpy_abi.slurm"
+         exit 1 ;;
+esac
 
 # ============================================================
 # MODE 1: STANDARD TRAINING

@@ -27,6 +27,7 @@ Usage
 """
 
 import argparse
+import json
 import os
 import sys
 import tarfile
@@ -37,6 +38,7 @@ def build(dataset_path, out_dir, use_gzip=False):
     os.makedirs(out_dir, exist_ok=True)
     ext = ".tar.gz" if use_gzip else ".tar"
     mode = "w:gz" if use_gzip else "w"
+    build_started = time.perf_counter()
 
     sources = {
         "originals": (
@@ -48,6 +50,11 @@ def build(dataset_path, out_dir, use_gzip=False):
             os.path.join(dataset_path, "train/negs/masks"),
         ),
     }
+
+    # Persisted for Table~\ref{tab:overhead} (profiling overhead): archive
+    # construction is a one-off, offline cost, but only if it's saved
+    # somewhere -- it used to only ever reach stdout.
+    per_archive = {}
 
     for name, (img_dir, mask_dir) in sources.items():
         if not os.path.isdir(img_dir):
@@ -77,9 +84,27 @@ def build(dataset_path, out_dir, use_gzip=False):
                     n_mask += 1
 
         size_mb = os.path.getsize(out_path) / 1024 ** 2
+        elapsed_s = time.perf_counter() - started
         print(f"{name:10s} -> {out_path}")
         print(f"           {n_img} images, {n_mask} masks, {size_mb:.1f} MB, "
-              f"{time.perf_counter() - started:.1f}s")
+              f"{elapsed_s:.1f}s")
+        per_archive[name] = {
+            "path": out_path, "n_images": n_img, "n_masks": n_mask,
+            "size_mb": size_mb, "elapsed_s": elapsed_s,
+        }
+
+    total_elapsed_s = time.perf_counter() - build_started
+    summary = {
+        "out_dir": out_dir,
+        "gzip": use_gzip,
+        "total_elapsed_s": total_elapsed_s,
+        "archives": per_archive,
+    }
+    summary_path = os.path.join(out_dir, "archive_build_summary.json")
+    with open(summary_path, "w") as handle:
+        json.dump(summary, handle, indent=2)
+    print(f"\nTotal archive-construction time: {total_elapsed_s:.1f}s")
+    print(f"Summary saved to: {summary_path}")
 
     return out_dir
 

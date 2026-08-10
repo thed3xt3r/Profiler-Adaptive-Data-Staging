@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import json
 import os
 import random
@@ -17,8 +18,11 @@ import matplotlib
 matplotlib.use("Agg")  # non-interactive backend, safe for HPC
 import matplotlib.pyplot as plt
 
-from dataset import load_dataset, get_transforms, ArcheoDataset, TarArcheoDataset, StagingArcheoDataset
+from dataset import (load_dataset, get_transforms, ArcheoDataset, TarArcheoDataset,
+                     StagingArcheoDataset, compute_adaptive_stage_depth)
 from model import ArcheoModel
+from gpu_monitor import GPUUtilMonitor
+from fsop_monitor import FSOpCounter
 
 # ---------------------------------------------------------------------------
 # GPU setup
@@ -81,8 +85,18 @@ def resolve_data_root(cli_value=None):
 
 
 def resolve_scratch_dir(project_root):
-    """Node-local staging area used by the PADS 'stage' policy."""
-    value = os.environ.get("PADS_SCRATCH_DIR") or os.path.join(project_root, "scratch")
+    """Node-local staging area used by the PADS 'stage' policy.
+
+    Deliberately NOT derived from project_root: giving every isolated
+    project_root (one per RQ/ablation config, for checkpoint isolation) its
+    own scratch subdirectory meant every stage-policy job independently
+    copied its own multi-GB snapshot of the dataset -- 69 such copies (~91GB)
+    accumulated in one session and exhausted the disk quota. A real
+    node-local scratch mount is shared per-node regardless of which
+    experiment is using it; this restores that by defaulting to one fixed
+    location under the repo root unless PADS_SCRATCH_DIR overrides it.
+    """
+    value = os.environ.get("PADS_SCRATCH_DIR") or os.path.join(REPO_ROOT, "runs", "scratch")
     scratch_dir = os.path.abspath(os.path.expanduser(value))
     # StagingArcheoDataset swallows copy errors, so a missing directory would
     # silently downgrade the stage policy to a plain read. Create it up front.
@@ -209,31 +223,49 @@ class NonFiniteLossGuard(pl.Callback):
 # PADS profiler helpers
 # ---------------------------------------------------------------------------
 
-def classify_bottleneck(metrics, scratch_available=False):
-    """Classify the dominant bottleneck from profiled timings."""
+def classify_bottleneck(metrics, scratch_available=False, gamma_s=1.25, gamma_d=1.5,
+                         epsilon=0.05):
+    """Classify the dominant bottleneck from profiled timings.
+
+    gamma_s, gamma_d and epsilon are the thresholds from the methodology's
+    classification rule (Section~\\ref{ch:methodology}): thresholds are set
+    above unity so a policy is adopted only when the corresponding cost
+    dominates, not merely when it is present. Defaults (1.25, 1.5) match the
+    values used throughout the thesis; overriding them is how Chapter 6's
+    classifier-threshold-sensitivity ablation is run.
+    """
     t_data = float(metrics.get("t_data", 0.0))
     t_decode = float(metrics.get("t_decode", 0.0))
     t_h2d = float(metrics.get("t_h2d", 0.0))
     t_gpu = float(metrics.get("t_gpu", 0.0))
 
-    if scratch_available and t_h2d > max(t_decode, t_gpu, 0.05) * 1.25:
+    if scratch_available and t_h2d > max(t_decode, t_gpu, epsilon) * gamma_s:
         return "stage"
-    if t_decode > max(t_h2d, t_gpu) * 1.5:
+    if t_decode > max(t_h2d, t_gpu) * gamma_d:
         return "shard"
-    if t_data > max(t_decode, t_gpu) * 1.5:
+    if t_data > max(t_decode, t_gpu) * gamma_d:
         return "shard"
     return "loose"
 
 
-def select_policy(metrics, scratch_available=False):
+def select_policy(metrics, scratch_available=False, gamma_s=1.25, gamma_d=1.5,
+                   epsilon=0.05, stage_h2d_threshold=0.08):
     """Select a PADS policy from collected profiler metrics."""
-    if scratch_available and float(metrics.get("t_h2d", 0.0)) > 0.08:
+    if scratch_available and float(metrics.get("t_h2d", 0.0)) > stage_h2d_threshold:
         return "stage"
-    return classify_bottleneck(metrics, scratch_available=scratch_available)
+    return classify_bottleneck(metrics, scratch_available=scratch_available,
+                                gamma_s=gamma_s, gamma_d=gamma_d, epsilon=epsilon)
 
 
-def build_dataloader(dataset, batch_size, shuffle, drop_last, policy="loose", num_workers=4):
-    """Create a DataLoader with policy-based worker settings."""
+def build_dataloader(dataset, batch_size, shuffle, drop_last, policy="loose", num_workers=4,
+                      prefetch_depth=None):
+    """Create a DataLoader with policy-based worker settings.
+
+    prefetch_depth, if given, overrides the policy-derived prefetch_factor
+    below -- needed for RQ4's fixed-depth sweep (1/2/4/8) against PADS's
+    auto-tuned depth, and to make method 2 ("tuned DataLoader") an explorable
+    knob rather than one hardcoded guess.
+    """
     if policy == "stage":
         workers = min(max(num_workers, 4), 8)
         prefetch_factor = 2
@@ -243,6 +275,9 @@ def build_dataloader(dataset, batch_size, shuffle, drop_last, policy="loose", nu
     else:
         workers = max(1, num_workers - 1)
         prefetch_factor = 1
+
+    if prefetch_depth is not None:
+        prefetch_factor = prefetch_depth
 
     loader_kwargs = {
         "batch_size": batch_size,
@@ -260,7 +295,8 @@ def build_dataloader(dataset, batch_size, shuffle, drop_last, policy="loose", nu
 
 def create_dataset(data_items, originals_images_dir, originals_masks_dir,
                    negs_images_dir, negs_masks_dir, transform, policy="loose",
-                   originals_tar_path=None, negs_tar_path=None, scratch_dir=None):
+                   originals_tar_path=None, negs_tar_path=None, scratch_dir=None,
+                   full_prestage=False, scratch_capacity_pct=None, stage_depth=None):
     """Factory function to create the appropriate dataset based on policy."""
     if policy == "shard":
         if originals_tar_path and negs_tar_path:
@@ -269,12 +305,16 @@ def create_dataset(data_items, originals_images_dir, originals_masks_dir,
             print(f"[Warning] shard policy requested but tar files not found, falling back to loose")
             return ArcheoDataset(data_items, originals_images_dir, originals_masks_dir,
                                 negs_images_dir, negs_masks_dir, transform=transform)
-    
+
     elif policy == "stage":
+        stage_kwargs = dict(scratch_dir=scratch_dir, full_prestage=full_prestage,
+                             scratch_capacity_pct=scratch_capacity_pct)
+        if stage_depth is not None:
+            stage_kwargs["stage_depth"] = stage_depth
         return StagingArcheoDataset(data_items, originals_images_dir, originals_masks_dir,
                                    negs_images_dir, negs_masks_dir, transform=transform,
-                                   scratch_dir=scratch_dir)
-    
+                                   **stage_kwargs)
+
     else:  # loose
         return ArcheoDataset(data_items, originals_images_dir, originals_masks_dir,
                             negs_images_dir, negs_masks_dir, transform=transform)
@@ -282,8 +322,21 @@ def create_dataset(data_items, originals_images_dir, originals_masks_dir,
 
 def profile_data_pipeline(model, dataset, batch_size=32, device="cuda",
                           num_batches=12, scratch_available=True,
-                          profile_dir="profiler_logs", num_workers=0):
-    """Profile batch acquisition, decode and H2D timings and select a PADS policy."""
+                          profile_dir="profiler_logs", num_workers=0,
+                          gamma_s=1.25, gamma_d=1.5, epsilon=0.05,
+                          stage_h2d_threshold=0.08, discard_batches=0,
+                          checkpoint_batches=None):
+    """Profile batch acquisition, decode and H2D timings and select a PADS policy.
+
+    discard_batches: run this many batches unmeasured before the timed loop
+    starts, to burn in one-time CUDA/cuDNN warmup cost (kernel autotuning,
+    allocator warmup) instead of letting it dominate a short average -- see
+    the profiler-bias diagnostic (8-batch vs. 147-batch full-epoch probe).
+    checkpoint_batches: optional list of post-discard batch counts at which
+    to snapshot the running metrics/ratio, for sweeping window size in one
+    pass instead of re-running the whole probe per candidate N.
+    """
+    warmup_start = time.perf_counter()
     os.makedirs(profile_dir, exist_ok=True)
     dataset.reset_profile_stats()
     dataset.profile_enabled = True
@@ -303,40 +356,76 @@ def profile_data_pipeline(model, dataset, batch_size=32, device="cuda",
     iterator = iter(dataloader)
     metrics = {"t_data": 0.0, "t_decode": 0.0, "t_h2d": 0.0, "t_gpu": 0.0}
     batches_seen = 0
+    checkpoints = {}
+    remaining_checkpoints = sorted(checkpoint_batches) if checkpoint_batches else []
 
-    for _ in range(num_batches):
+    # RQ2 (Table~\ref{tab:rq2-fsops}): counting open()/stat() calls only works
+    # if __getitem__ runs in THIS process -- a DataLoader worker subprocess
+    # does not share the patched builtins.open/os.stat below, so with
+    # num_workers > 0 the counts would be silently wrong (under-counted), not
+    # just imprecise. Only enable counting when num_workers == 0.
+    fsop_counter = FSOpCounter() if num_workers == 0 else None
+    if num_workers != 0:
+        print(f"[PADS Profiler] num_workers={num_workers} != 0: filesystem "
+              f"operation counts will not be recorded for this run (workers "
+              f"run in separate processes that don't share the patched "
+              f"builtins). Pass num_workers=0 to measure RQ2.")
+
+    for _ in range(discard_batches):
         try:
-            batch_start = time.perf_counter()
             batch = next(iterator)
-            t_data = time.perf_counter() - batch_start
         except StopIteration:
-            break
-
-        sample_count = batch[0].shape[0] if isinstance(batch[0], torch.Tensor) else len(batch[0])
-        decode_values = dataset.profile_stats[-sample_count:] if dataset.profile_stats else []
-        t_decode = float(np.mean(decode_values)) if decode_values else 0.0
-        dataset.reset_profile_stats()
-
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        h2d_start = time.perf_counter()
+            iterator = iter(dataloader)
+            batch = next(iterator)
         images = batch[0].to(device, non_blocking=True)
-        t_h2d = time.perf_counter() - h2d_start
-
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        gpu_start = time.perf_counter()
         with torch.no_grad():
             _ = model(images)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        t_gpu = time.perf_counter() - gpu_start
+    dataset.reset_profile_stats()
 
-        metrics["t_data"] += t_data
-        metrics["t_decode"] += t_decode
-        metrics["t_h2d"] += t_h2d
-        metrics["t_gpu"] += t_gpu
-        batches_seen += 1
+    with (fsop_counter if fsop_counter is not None else contextlib.nullcontext()):
+        for _ in range(num_batches):
+            try:
+                batch_start = time.perf_counter()
+                batch = next(iterator)
+                t_data = time.perf_counter() - batch_start
+            except StopIteration:
+                break
+
+            sample_count = batch[0].shape[0] if isinstance(batch[0], torch.Tensor) else len(batch[0])
+            decode_values = dataset.profile_stats[-sample_count:] if dataset.profile_stats else []
+            t_decode = float(np.mean(decode_values)) if decode_values else 0.0
+            dataset.reset_profile_stats()
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            h2d_start = time.perf_counter()
+            images = batch[0].to(device, non_blocking=True)
+            t_h2d = time.perf_counter() - h2d_start
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            gpu_start = time.perf_counter()
+            with torch.no_grad():
+                _ = model(images)
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t_gpu = time.perf_counter() - gpu_start
+
+            metrics["t_data"] += t_data
+            metrics["t_decode"] += t_decode
+            metrics["t_h2d"] += t_h2d
+            metrics["t_gpu"] += t_gpu
+            batches_seen += 1
+
+            while remaining_checkpoints and batches_seen == remaining_checkpoints[0]:
+                n = remaining_checkpoints.pop(0)
+                checkpoints[n] = {
+                    "t_data": metrics["t_data"] / n, "t_decode": metrics["t_decode"] / n,
+                    "t_h2d": metrics["t_h2d"] / n, "t_gpu": metrics["t_gpu"] / n,
+                    "ratio_data_gpu": (metrics["t_data"] / n) / max(metrics["t_gpu"] / n, 1e-9),
+                }
 
     if batches_seen == 0:
         metrics = {"t_data": 0.0, "t_decode": 0.0, "t_h2d": 0.0, "t_gpu": 0.0}
@@ -344,15 +433,34 @@ def profile_data_pipeline(model, dataset, batch_size=32, device="cuda",
     else:
         for key in metrics:
             metrics[key] /= batches_seen
-        policy = select_policy(metrics, scratch_available=scratch_available)
+        policy = select_policy(metrics, scratch_available=scratch_available,
+                                gamma_s=gamma_s, gamma_d=gamma_d, epsilon=epsilon,
+                                stage_h2d_threshold=stage_h2d_threshold)
 
     dataset.profile_enabled = False
+    warmup_wallclock_s = time.perf_counter() - warmup_start
 
     summary = {
         "policy": policy,
         "scratch_available": scratch_available,
         "metrics": metrics,
         "batches_profiled": batches_seen,
+        "thresholds": {
+            "gamma_s": gamma_s, "gamma_d": gamma_d, "epsilon": epsilon,
+            "stage_h2d_threshold": stage_h2d_threshold,
+        },
+        # Wall-clock cost of the whole warm-up window (dataset/dataloader
+        # construction through the last profiled batch) -- distinct from the
+        # per-batch t_data/t_decode/t_h2d/t_gpu averages above, and what
+        # Table~\ref{tab:overhead} (profiling overhead) actually needs: the
+        # one-off cost paid before PADS starts training, not a per-batch rate.
+        "warmup_wallclock_s": warmup_wallclock_s,
+        # RQ2 (Table~\ref{tab:rq2-fsops}): None if num_workers != 0 -- see the
+        # warning printed above the profiling loop for why.
+        "fsops": (fsop_counter.summary(batches=batches_seen)
+                  if fsop_counter is not None else None),
+        "discard_batches": discard_batches,
+        "checkpoints": checkpoints,
     }
     summary_path = os.path.join(profile_dir, "data_policy_summary.json")
     with open(summary_path, "w") as handle:
@@ -364,6 +472,13 @@ def profile_data_pipeline(model, dataset, batch_size=32, device="cuda",
     print(f"  t_decode: {metrics['t_decode']:.4f}s")
     print(f"  t_h2d: {metrics['t_h2d']:.4f}s")
     print(f"  t_gpu: {metrics['t_gpu']:.4f}s")
+    print(f"  Warm-up wall-clock: {warmup_wallclock_s:.2f}s")
+    if summary["fsops"] is not None:
+        print(f"  open() calls: {summary['fsops']['open_calls']} "
+              f"({summary['fsops']['open_calls_per_batch']:.1f}/batch)")
+        print(f"  stat() calls: {summary['fsops']['stat_calls']} "
+              f"({summary['fsops']['stat_calls_per_batch']:.1f}/batch)")
+        print(f"  bytes read: {summary['fsops']['bytes_read']}")
     print(f"  Summary saved to: {summary_path}")
 
     return summary
@@ -465,6 +580,10 @@ def parse_args():
     parser.add_argument("--profile", action="store_true", help="Profile the best model")
     parser.add_argument("--profile_policy", action="store_true", help="Profile the data pipeline and choose a PADS policy")
     parser.add_argument("--profile_batches", type=int, default=8, help="Number of batches to use for PADS policy profiling")
+    parser.add_argument("--sweep_discard", type=int, default=0,
+                         help="Batches to run unmeasured before profiling starts, to burn in CUDA/cuDNN warmup cost (see profiler-bias diagnostic).")
+    parser.add_argument("--sweep_checkpoints", type=str, default="",
+                         help="Comma-separated post-discard batch counts to snapshot t_data/t_gpu/ratio at, e.g. '8,16,32,64'.")
     parser.add_argument("--profile_wait", type=int, default=1)
     parser.add_argument("--profile_warmup", type=int, default=1)
     parser.add_argument("--profile_active", type=int, default=5)
@@ -486,6 +605,32 @@ def parse_args():
                         choices=["loose", "shard", "stage"],
                         help="Force a PADS data policy instead of letting the profiler "
                              "choose (or defaulting to loose). Needed to A/B the policies.")
+    parser.add_argument("--full_prestage", action="store_true",
+                        help="Evaluation method 4: copy the entire dataset to node-local "
+                             "scratch before training starts (implies --data_policy stage; "
+                             "no adaptive/rolling staging). This is the static ceiling that "
+                             "PADS's adaptive staging is compared against, not a PADS mode.")
+    parser.add_argument("--scratch_capacity_pct", type=float, default=None,
+                        help="Chapter 6 scratch-capacity ablation: cap the 'stage' policy's "
+                             "scratch usage at this fraction (0.0-1.0) of the corpus, "
+                             "synthetically simulating scratch too small to hold everything. "
+                             "Unset = unconstrained (real scratch capacity).")
+    parser.add_argument("--prefetch_depth", type=int, default=None,
+                        help="Override the policy-derived DataLoader prefetch_factor with a "
+                             "fixed value (e.g. 1/2/4/8). Needed for RQ4's fixed-depth sweep "
+                             "against PADS's auto-tuned depth. Unset = policy default.")
+    parser.add_argument("--gamma_s", type=float, default=1.25,
+                        help="Stage-policy threshold (Section~ch:methodology). Default 1.25. "
+                             "Needed for Chapter 6's classifier-threshold-sensitivity ablation.")
+    parser.add_argument("--gamma_d", type=float, default=1.5,
+                        help="Shard-policy threshold (Section~ch:methodology). Default 1.5. "
+                             "Needed for Chapter 6's classifier-threshold-sensitivity ablation.")
+    parser.add_argument("--epsilon", type=float, default=0.05,
+                        help="Floor preventing division by near-zero timings on fast local "
+                             "storage (Section~ch:methodology). Default 0.05.")
+    parser.add_argument("--stage_h2d_threshold", type=float, default=0.08,
+                        help="Absolute t_h2d threshold (seconds) select_policy() checks before "
+                             "falling back to the gamma-based classify_bottleneck() rule.")
     parser.add_argument("--profile_only", action="store_true",
                         help="Run the PADS policy profiler, report the decision, and exit "
                              "without training. Implies --profile_policy.")
@@ -611,13 +756,15 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
         print(f"\n[Resume] Found existing checkpoint at {resume_ckpt_path}; resuming training from there.")
         print("         Pass --fresh (or -Fresh) to ignore it and start from epoch 0.")
 
+    gpu_monitor = GPUUtilMonitor(device_index=0)
     try:
-        trainer.fit(
-            model,
-            train_dataloaders=train_loader,
-            val_dataloaders=val_loader,
-            ckpt_path=resume_ckpt_path,
-        )
+        with gpu_monitor:
+            trainer.fit(
+                model,
+                train_dataloaders=train_loader,
+                val_dataloaders=val_loader,
+                ckpt_path=resume_ckpt_path,
+            )
     except Exception as exc:
         # Resuming a checkpoint that already ran past --epochs is a hard
         # MisconfigurationException in Lightning. Turn that stack trace into
@@ -635,6 +782,19 @@ def run_training(config, train_loader, val_loader, val_dataset, trial=None):
             )
             raise SystemExit(1) from exc
         raise
+
+    gpu_util_summary = gpu_monitor.summary()
+    gpu_util_path = os.path.join(config["checkpoint_path"], "gpu_util_summary.json")
+    with open(gpu_util_path, "w") as handle:
+        json.dump(gpu_util_summary, handle, indent=2)
+    if gpu_util_summary["gpu_util_mean_pct"] is not None:
+        print(f"\n[GPUUtilMonitor] Mean GPU utilisation over training: "
+              f"{gpu_util_summary['gpu_util_mean_pct']:.1f}% "
+              f"({gpu_util_summary['gpu_util_n_samples']} samples)")
+    else:
+        print("\n[GPUUtilMonitor] No GPU utilisation samples recorded "
+              "(pynvml unavailable or nvmlInit failed) -- see "
+              f"{gpu_util_path}")
 
     best_iou = trainer.callback_metrics.get("valid/iou")
     best_iou_val = float(best_iou) if best_iou is not None else 0.0
@@ -730,6 +890,13 @@ def main():
         "focal_alpha": args.focal_alpha,
         "val_crop": args.val_crop,
         "forced_data_policy": args.data_policy,
+        "full_prestage": args.full_prestage,
+        "scratch_capacity_pct": args.scratch_capacity_pct,
+        "prefetch_depth": args.prefetch_depth,
+        "gamma_s": args.gamma_s,
+        "gamma_d": args.gamma_d,
+        "epsilon": args.epsilon,
+        "stage_h2d_threshold": args.stage_h2d_threshold,
         "fresh": args.fresh,
         "in_channels": 3,
         "patience": 15,
@@ -771,6 +938,8 @@ def main():
         scratch_dir=SCRATCH_DIR,
         originals_tar_path=ORIGINALS_TAR,
         negs_tar_path=NEGS_TAR,
+        full_prestage=base_config.get("full_prestage", False),
+        scratch_capacity_pct=base_config.get("scratch_capacity_pct"),
     )
 
     # ------------------------------------------------------------------
@@ -782,7 +951,15 @@ def main():
     # entire use of it is picking num_workers/prefetch_factor -- meaning
     # TarArcheoDataset and StagingArcheoDataset were never instantiated and
     # every run, whatever policy it "selected", read loose files.
-    if base_config.get("forced_data_policy"):
+    if base_config.get("full_prestage"):
+        # Evaluation method 4: the full pre-stage ceiling is a "stage" dataset
+        # by construction (only StagingArcheoDataset knows how to write to
+        # scratch), just with full_prestage=True instead of PADS's adaptive
+        # rolling window. --data_policy/--profile_policy are not consulted.
+        base_config["data_policy"] = "stage"
+        print("\n[PADS] --full_prestage given: forcing data_policy='stage' with "
+              "the entire dataset staged up front (evaluation method 4).")
+    elif base_config.get("forced_data_policy"):
         base_config["data_policy"] = base_config["forced_data_policy"]
         print(f"\n[PADS] Data policy forced to '{base_config['data_policy']}' via --data_policy "
               f"(profiler not consulted).")
@@ -812,6 +989,13 @@ def main():
             num_batches=base_config["profile_batches"],
             scratch_available=True,
             profile_dir=os.path.join(PROJECT_ROOT, "deeplab", "logs"),
+            gamma_s=base_config["gamma_s"],
+            gamma_d=base_config["gamma_d"],
+            epsilon=base_config["epsilon"],
+            stage_h2d_threshold=base_config["stage_h2d_threshold"],
+            discard_batches=args.sweep_discard,
+            checkpoint_batches=([int(x) for x in args.sweep_checkpoints.split(",") if x.strip()]
+                                 if args.sweep_checkpoints else None),
         )
         base_config["data_policy"] = policy_summary["policy"]
     else:
@@ -824,6 +1008,37 @@ def main():
               "create_dataset will fall back to loose. Build them with "
               "PADS/build_tars.py.")
     print(f"[PADS] Building datasets with policy: {policy}")
+
+    # RQ4 (Table~\ref{tab:rq4-depth}): resolve the predictive-staging
+    # prefetch depth d before building datasets, per Section~\ref{ch:methodology}
+    # Stage 4. --prefetch_depth fixes it directly (the RQ4.1-4.4 sweep);
+    # otherwise it's derived from measured timings via the thesis's own
+    # formula, d = min(ceil(t_stage/t_consume) + 1, d_max) -- this is what
+    # makes RQ4.5 ("auto-tuned") an actual measurement instead of a relabeled
+    # copy of whatever the hardcoded default used to be.
+    if policy == "stage" and not base_config.get("full_prestage"):
+        if base_config.get("prefetch_depth") is not None:
+            dataset_kwargs["stage_depth"] = base_config["prefetch_depth"]
+            print(f"[PADS] Stage prefetch depth fixed via --prefetch_depth: "
+                  f"d={dataset_kwargs['stage_depth']}")
+        else:
+            print("\n[PADS] Measuring t_stage/t_consume to auto-tune the "
+                  "predictive-staging prefetch depth...")
+            stage_depth_info = compute_adaptive_stage_depth(
+                train_data, originals_images_dir, originals_masks_dir,
+                negs_images_dir, negs_masks_dir, SCRATCH_DIR,
+            )
+            dataset_kwargs["stage_depth"] = stage_depth_info["depth"]
+            print(f"[PADS] Auto-tuned prefetch depth: d={stage_depth_info['depth']} "
+                  f"(t_stage={stage_depth_info['t_stage']*1000:.1f}ms, "
+                  f"t_consume={stage_depth_info['t_consume']*1000:.1f}ms, "
+                  f"d_max={stage_depth_info['d_max']})")
+            depth_dir = os.path.join(PROJECT_ROOT, "deeplab", "logs")
+            os.makedirs(depth_dir, exist_ok=True)
+            depth_summary_path = os.path.join(depth_dir, "stage_depth_summary.json")
+            with open(depth_summary_path, "w") as handle:
+                json.dump(stage_depth_info, handle, indent=2)
+            print(f"[PADS] Stage-depth summary saved to: {depth_summary_path}")
 
     train_dataset = create_dataset(
         train_data, originals_images_dir, originals_masks_dir,
@@ -843,6 +1058,39 @@ def main():
     print(f"[PADS] train dataset class: {type(train_dataset).__name__}")
 
     if args.profile_only:
+        # RQ2 (Table~\ref{tab:rq2-fsops}): profile_data_pipeline() above only
+        # ever profiles a loose probe (it needs *something* to measure before
+        # a policy is even chosen) -- when --data_policy forces loose/shard/
+        # stage directly, that branch is skipped entirely and no fsop count
+        # is produced at all. Count real fs ops against the policy actually
+        # in effect here (train_dataset, whatever create_dataset() built
+        # above) so forced and profiler-selected policies both get a number.
+        fsop_dir = os.path.join(PROJECT_ROOT, "deeplab", "logs")
+        os.makedirs(fsop_dir, exist_ok=True)
+        fsop_loader = DataLoader(train_dataset, batch_size=base_config["batch_size"],
+                                  shuffle=False, num_workers=0)
+        fsop_iterator = iter(fsop_loader)
+        batches_seen = 0
+        with FSOpCounter() as fsop_counter:
+            for _ in range(base_config["profile_batches"]):
+                try:
+                    next(fsop_iterator)
+                except StopIteration:
+                    break
+                batches_seen += 1
+        fsops = fsop_counter.summary(batches=batches_seen)
+        fsops["policy"] = policy
+        fsops["batches_profiled"] = batches_seen
+        fsops_path = os.path.join(fsop_dir, f"fsops_policy_{policy}.json")
+        with open(fsops_path, "w") as handle:
+            json.dump(fsops, handle, indent=2)
+        print(f"\n[FSOpCounter] fs-op summary for policy={policy}")
+        if batches_seen:
+            print(f"  open() calls: {fsops['open_calls']} ({fsops['open_calls_per_batch']:.1f}/batch)")
+            print(f"  stat() calls: {fsops['stat_calls']} ({fsops['stat_calls_per_batch']:.1f}/batch)")
+            print(f"  bytes read: {fsops['bytes_read']} ({fsops['bytes_read_per_batch']:.0f}/batch)")
+        print(f"  Summary saved to: {fsops_path}")
+
         print("[PADS] --profile_only: policy decided and datasets built; exiting before training.")
         return
 
@@ -853,6 +1101,7 @@ def main():
         drop_last=True,
         policy=base_config["data_policy"],
         num_workers=base_config["num_workers"],
+        prefetch_depth=base_config.get("prefetch_depth"),
     )
     val_loader = build_dataloader(
         val_dataset,
@@ -861,6 +1110,7 @@ def main():
         drop_last=False,
         policy=base_config["data_policy"],
         num_workers=base_config["num_workers"],
+        prefetch_depth=base_config.get("prefetch_depth"),
     )
 
     if args.tune:

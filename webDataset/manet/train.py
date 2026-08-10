@@ -4,9 +4,9 @@ import random
 import numpy as np
 import optuna
 import torch
-import pytorch_lightning as pl
-from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+import lightning.pytorch as pl
+from lightning.pytorch import loggers as pl_loggers
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from torch.utils.data import DataLoader
 from torch.profiler import profile, record_function, ProfilerActivity
 from datetime import datetime
@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 
 from dataset import get_webdataset, get_transforms
 from model import ArcheoModel
+from gpu_monitor import GPUUtilMonitor
+from fsop_monitor import FSOpCounter
 
 # ---------------------------------------------------------------------------
 # GPU compatibility workaround
@@ -184,6 +186,50 @@ def profile_model(model, dataloader, num_batches=5, device="cuda",
 
 
 # ---------------------------------------------------------------------------
+# RQ2 fs-op profiling (Table~\ref{tab:rq2-fsops})
+# ---------------------------------------------------------------------------
+
+def profile_fsops(dataset, batch_size=32, num_batches=12, profile_dir="profiler_logs"):
+    """Count open()/stat() calls and bytes read while pulling batches out of
+    the WebDataset pipeline, for the same RQ2 comparison PADS/*/train.py's
+    profile_data_pipeline() runs against loose/shard/stage.
+
+    num_workers=0 is required, not just a default: FSOpCounter patches
+    builtins.open/os.stat in this process only, and a DataLoader worker
+    subprocess would silently under-count (see fsop_monitor.py).
+    """
+    import json
+
+    os.makedirs(profile_dir, exist_ok=True)
+    loader = DataLoader(dataset, batch_size=batch_size, num_workers=0)
+    iterator = iter(loader)
+
+    batches_seen = 0
+    with FSOpCounter() as fsop_counter:
+        for _ in range(num_batches):
+            try:
+                next(iterator)
+            except StopIteration:
+                break
+            batches_seen += 1
+
+    summary = fsop_counter.summary(batches=batches_seen)
+    summary["batches_profiled"] = batches_seen
+    summary_path = os.path.join(profile_dir, "data_policy_summary.json")
+    with open(summary_path, "w") as handle:
+        json.dump(summary, handle, indent=2)
+
+    print("\n[FSOpCounter] WebDataset fs-op summary")
+    print(f"  Batches profiled: {batches_seen}")
+    if batches_seen:
+        print(f"  open() calls: {summary['open_calls']} ({summary['open_calls_per_batch']:.1f}/batch)")
+        print(f"  stat() calls: {summary['stat_calls']} ({summary['stat_calls_per_batch']:.1f}/batch)")
+        print(f"  bytes read: {summary['bytes_read']} ({summary['bytes_read_per_batch']:.0f}/batch)")
+    print(f"  Summary saved to: {summary_path}")
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -197,6 +243,10 @@ def parse_args():
     parser.add_argument("--profile_active", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--profile_only", action="store_true",
+                        help="Run the RQ2 fs-op profiling pass and exit before training.")
+    parser.add_argument("--profile_batches", type=int, default=12,
+                        help="Number of batches to use for RQ2 fs-op profiling.")
     return parser.parse_args()
 
 
@@ -254,7 +304,7 @@ def run_training(config, train_loader, val_loader, val_dataset_func, trial=None)
         log_every_n_steps=1,
         enable_progress_bar=True,
         callbacks=callbacks_list,
-        deterministic=True,
+        deterministic="warn",
     )
 
     cfg_text = "\n".join([f"{key}: {config[key]}" for key in config])
@@ -263,11 +313,23 @@ def run_training(config, train_loader, val_loader, val_dataset_func, trial=None)
         print(cfg_text)
         trainer.logger.experiment.add_text(tag="config", text_string=cfg_text)
 
-    trainer.fit(
-        model,
-        train_dataloaders=train_loader, 
-        val_dataloaders=val_loader
-    )
+    gpu_monitor = GPUUtilMonitor(device_index=0)
+    with gpu_monitor:
+        trainer.fit(
+            model,
+            train_dataloaders=train_loader,
+            val_dataloaders=val_loader
+        )
+
+    gpu_util_summary = gpu_monitor.summary()
+    gpu_util_path = os.path.join(config["checkpoint_path"], "gpu_util_summary.json")
+    import json
+    with open(gpu_util_path, "w") as handle:
+        json.dump(gpu_util_summary, handle, indent=2)
+    if gpu_util_summary["gpu_util_mean_pct"] is not None:
+        print(f"\n[GPUUtilMonitor] Mean GPU utilisation over training: "
+              f"{gpu_util_summary['gpu_util_mean_pct']:.1f}% "
+              f"({gpu_util_summary['gpu_util_n_samples']} samples)")
 
     best_iou = trainer.callback_metrics.get("valid/iou")
     best_iou_val = float(best_iou) if best_iou is not None else 0.0
@@ -371,8 +433,18 @@ def main():
 
     val_dataset = val_dataset_func(repeat=False)
 
+    if args.profile_only:
+        profile_fsops(
+            train_dataset,
+            batch_size=base_config["batch_size"],
+            num_batches=args.profile_batches,
+            profile_dir=os.path.join(base_config["checkpoint_path"], "profiler_logs"),
+        )
+        print("[FSOpCounter] --profile_only: fs-op count taken; exiting before training.")
+        return
+
     # Dataloaders - WebDataset recommends batching via DataLoader or wds pipelines
-    train_loader = DataLoader(train_dataset, batch_size=base_config["batch_size"], 
+    train_loader = DataLoader(train_dataset, batch_size=base_config["batch_size"],
                               num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=base_config["batch_size"], 
                             num_workers=4, pin_memory=True)

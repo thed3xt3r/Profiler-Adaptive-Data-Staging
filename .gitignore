@@ -14,12 +14,15 @@ venv/
 
 # Data and Checkpoints
 bing_1k/
+bing_1k_tars/
 data/
 checkpoints/
 checkpoints_*/
+webDataset/shards/
 *.ckpt
 *.pt
 *.pth
+/2602.05087v1.pdf
 
 # Local run outputs: PADS defaults PROJECT_ROOT to <repo>/runs so logs and
 # checkpoints stay out of the baseline deeplab/ and segformer/ source dirs.
@@ -42,7 +45,7 @@ best_trial_profile/
 
 # OS / Editor
 .DS_Store
-*.swp
+*.sw?
 *~
 .idea/
 .vscode/

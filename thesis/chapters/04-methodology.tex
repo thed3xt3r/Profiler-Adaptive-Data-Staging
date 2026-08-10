@@ -1,10 +1,10 @@
 %% ============================================================================
-\chapter{Methodology}
+\section{Methodology}
 \label{ch:methodology}
-\addcontentsline{lot}{chapter}{Methodology}
+\addcontentsline{lot}{section}{Methodology}
 %% ============================================================================
 
-\section{Motivation: when the DataLoader becomes the bottleneck}
+\subsection{Motivation: when the DataLoader becomes the bottleneck}
 
 Deep learning training on HPC is conventionally treated as a GPU problem.
 The profiling results reported in Section~\ref{sec:measured-baseline}, together with
@@ -20,14 +20,14 @@ Four findings motivate \pads{}:
     transferred but by per-file operations against a shared parallel filesystem.
   \item \textbf{Static configuration.} \code{num\_workers}, \code{prefetch\_factor}
     and \code{pin\_memory} are set once at loader construction and never adapt.
-    They cannot respond to a bottleneck that shifts --- as it does, when contention
+    They cannot respond to a bottleneck that shifts - as it does, when contention
     on a shared filesystem varies over the lifetime of a job.
   \item \textbf{Deterministic access.} Because the sample order is fixed once the
     epoch permutation is drawn, the sequence of future file accesses is known.
     Prefetching is therefore not speculative: it can be exact.
 \end{enumerate}
 
-\section{\pads{}: system overview}
+\subsection{\pads{}: system overview}
 
 \pads{} (Profiler-Adaptive Data Staging) is a drop-in replacement for the PyTorch
 \code{DataLoader} that observes its own behaviour during a short warm-up window,
@@ -38,19 +38,19 @@ the remainder of the run.
 The pipeline has four stages:
 
 \begin{enumerate}
-  \item \textbf{Warm-up profiling} --- 50--100 batches, instrumented.
-  \item \textbf{Bottleneck classification} --- I/O, decode, H2D or compute.
-  \item \textbf{Policy selection} --- loose, shard or stage.
-  \item \textbf{Predictive staging} --- shard prefetch to node-local scratch.
+  \item \textbf{Warm-up profiling} - 50--100 batches, instrumented.
+  \item \textbf{Bottleneck classification} - I/O, decode, H2D or compute.
+  \item \textbf{Policy selection} - loose, shard or stage.
+  \item \textbf{Predictive staging} - shard prefetch to node-local scratch.
 \end{enumerate}
 
-The design intent is that stages 1--3 cost a bounded, one-off overhead --- tens of
-seconds on a job measured in hours --- and that stage 4 recovers that cost many
+The design intent is that stages 1--3 cost a bounded, one-off overhead - tens of
+seconds on a job measured in hours - and that stage 4 recovers that cost many
 times over.
 The loader is deliberately conservative by default: if no bottleneck is detected, it
 degrades to the loose policy, which is the ordinary PyTorch \code{DataLoader}.
 
-\subsection{Stage 1 --- Warm-up profiling}
+\subsubsection{Stage 1 - Warm-up profiling}
 
 For the first 50--100 batches, \pads{} instruments the data path and records
 per-batch timings without altering behaviour.
@@ -86,7 +86,7 @@ the transfer and the forward/backward call respectively, synchronised before
 reading, because wall-clock timing of asynchronous CUDA work would otherwise
 attribute queueing delay to the wrong stage.
 \Tdata{} is measured as wall-clock time around \code{next(iterator)}, which captures
-the time the training loop is blocked waiting for a batch --- and is therefore the
+the time the training loop is blocked waiting for a batch - and is therefore the
 signal that directly expresses starvation.
 \Tdecode{} is instrumented inside \code{\_\_getitem\_\_}, accumulating per-sample
 decode and transform time, and is aggregated per batch.
@@ -106,7 +106,7 @@ exist in steady state.
 The first $w_0 = 10$ batches are discarded before statistics are computed, and the
 median is taken over the remainder.
 
-\subsection{Stage 2 --- Bottleneck classification}
+\subsubsection{Stage 2 - Bottleneck classification}
 
 The profiled signals are mapped onto a dominant bottleneck class.
 The classification is not a black box: it is a small set of rules over the measured
@@ -169,7 +169,7 @@ declines to switch.
 Section~\ref{sec:ablation-thresholds} examines the sensitivity of the outcome to
 $\gamma_s$ and $\gamma_d$.
 
-\subsection{Stage 3 --- Policy selection}
+\subsubsection{Stage 3 - Policy selection}
 
 Three staging policies are defined, summarised in Table~\ref{tab:policies}.
 
@@ -205,13 +205,13 @@ Archives are built once, offline, as uncompressed POSIX tar files with members n
 \code{images/<name>.jpg} and \code{masks/<name>.png}.
 Compression is deliberately not applied: the payload is already-compressed JPEG and
 PNG, so entropy coding yields negligible size reduction while forcing the archive to
-be decompressed from the stream start on every random access --- precisely the
+be decompressed from the stream start on every random access - precisely the
 access pattern a shuffled loader produces.
 This is a departure from WebDataset~\cite{Aizman19}, which streams shards
 sequentially and therefore does not pay that penalty; the choice here preserves
 exact random access at the cost of forgoing compression.
 
-\subsection{Stage 4 --- Predictive staging}
+\subsubsection{Stage 4 - Predictive staging}
 
 Because the epoch permutation is fixed at the start of the epoch, the identity of
 the next $k$ shards is known exactly.
@@ -240,8 +240,8 @@ $t_{\text{stage}}$, which on a shared filesystem is non-stationary.
 The second term is the feasibility constraint: no more than $d_{\max}$ shards may be
 resident at once.
 
-This is the mechanism by which RQ4 --- can prefetch depth be auto-tuned from
-measured timings? --- is answered affirmatively by construction, and it is what
+This is the mechanism by which RQ4 - can prefetch depth be auto-tuned from
+measured timings? - is answered affirmatively by construction, and it is what
 distinguishes \pads{} from WebDataset, which streams shards at a fixed, statically
 configured depth without reference to whether that depth is sufficient to hide the
 transfer.
@@ -252,27 +252,27 @@ most $d$ resident shards.
 Because consumption order is known, eviction is exact and requires no recency
 heuristic.
 
-\section{Metrics captured}
+\subsection{Metrics captured}
 
 Two families of metric are reported.
 
 \paragraph{Pipeline metrics (the object of the optimisation).}
 \begin{itemize}
-  \item \textbf{GPU utilisation} --- mean accelerator occupancy over the run, the
+  \item \textbf{GPU utilisation} - mean accelerator occupancy over the run, the
     headline indicator of whether starvation has been eliminated.
-  \item \textbf{Tile throughput} --- samples processed per second; the end-to-end
+  \item \textbf{Tile throughput} - samples processed per second; the end-to-end
     figure of merit.
-  \item \textbf{Time-to-epoch} --- wall-clock seconds per epoch, and total
+  \item \textbf{Time-to-epoch} - wall-clock seconds per epoch, and total
     time-to-target-IoU.
-  \item \textbf{\Tdata{} / \Tdecode{} / \Thtod{} / \Tgpu{} breakdown} --- retained
+  \item \textbf{\Tdata{} / \Tdecode{} / \Thtod{} / \Tgpu{} breakdown} - retained
     for the full run, not just warm-up, so that the \emph{shift} in the bottleneck
     under each policy is visible rather than merely its disappearance.
-  \item \textbf{Filesystem operation counts} --- \code{open}/\code{stat}/\code{read}
+  \item \textbf{Filesystem operation counts} - \code{open}/\code{stat}/\code{read}
     calls issued against GPFS, the direct measure of whether sharding achieved what
     it was intended to achieve (RQ2).
-  \item \textbf{Scratch traffic and residency} --- bytes staged, staging hit rate,
+  \item \textbf{Scratch traffic and residency} - bytes staged, staging hit rate,
     peak scratch occupancy.
-  \item \textbf{Profiling overhead} --- the cost of the warm-up window itself,
+  \item \textbf{Profiling overhead} - the cost of the warm-up window itself,
     reported explicitly so that the net benefit is honest.
 \end{itemize}
 
@@ -294,7 +294,7 @@ Any observed IoU deviation greater than the $\pm 0.5$ percentage point standard
 deviation reported in the reference results must be treated as a regression to be
 explained, not as noise.
 
-\section{Evaluation plan}
+\subsection{Evaluation plan}
 \label{sec:evaluation-plan}
 
 \pads{} is compared against four alternatives, all on identical model, dataset and
@@ -306,16 +306,16 @@ hardware, with only the data path varying (Table~\ref{tab:evaluation-plan}).
 \toprule
 \# & Method & What it isolates \\
 \midrule
-1 & Baseline PyTorch \code{DataLoader} --- loose files, default settings
+1 & Baseline PyTorch \code{DataLoader} - loose files, default settings
   & The unmodified starting point \\
-2 & Tuned PyTorch \code{DataLoader} --- best \code{num\_workers}, \code{pin\_memory}, \code{prefetch\_factor}
+2 & Tuned PyTorch \code{DataLoader} - best \code{num\_workers}, \code{pin\_memory}, \code{prefetch\_factor}
   & How much is recoverable by manual tuning alone; \pads{} must beat this, not merely the naive baseline \\
-3 & WebDataset --- fixed tar-shard streaming, no adaptation
+3 & WebDataset - fixed tar-shard streaming, no adaptation
   & Isolates the benefit of sharding from the benefit of adaptation (RQ2 vs RQ3) \\
-4 & Scratch baseline --- loose files copied manually to node-local scratch up front
+4 & Scratch baseline - loose files copied manually to node-local scratch up front
   & Isolates the benefit of staging from the benefit of predicting what to stage; the ceiling for any policy that removes GPFS from the path \\
-5 & \pads{} (proposed) --- adaptive staging + predictive prefetch
-  & --- \\
+5 & \pads{} (proposed) - adaptive staging + predictive prefetch
+  & - \\
 \bottomrule
 \end{tabular}
 \caption{Evaluation methods and the contrast each provides.}
@@ -327,12 +327,12 @@ specific contrast rather than by the aggregate result:
 
 \begin{itemize}
   \item \textbf{RQ1} is answered by the profiling breakdown across methods 1 and 2
-    and across the three architectures --- SegFormer, with the lowest \Tgpu{}, is
+    and across the three architectures - SegFormer, with the lowest \Tgpu{}, is
     the configuration in which the loader bottleneck should appear first.
   \item \textbf{RQ2} is answered by 3 vs 1, and by the filesystem operation counts.
   \item \textbf{RQ3} is answered by 5 vs 3, with 4 as the upper bound.
   \item \textbf{RQ4} is answered by 5 vs 3, and by a sweep of fixed depths in the
-    ablation of Chapter~\ref{ch:ablation} --- the auto-tuned depth should land at or
+    ablation of Section~\ref{ch:ablation} - the auto-tuned depth should land at or
     near the best fixed depth, without having been told it.
 \end{itemize}
 
@@ -342,18 +342,32 @@ adaptivity has bought nothing for this dataset, and the contribution reduces to 
 observation that the dataset fits in scratch.
 \pads{}'s claim is that it reaches that ceiling without requiring the user to know in
 advance that scratch is the answer, and that it continues to work when the dataset
-does \emph{not} fit --- which is the regime the design is actually aimed at, and
-which Chapter~\ref{ch:ablation} probes by synthetically constraining scratch
+does \emph{not} fit - which is the regime the design is actually aimed at, and
+which Section~\ref{ch:ablation} probes by synthetically constraining scratch
 capacity.
 
-\section{Experimental protocol}
+\subsection{Experimental protocol}
 
 To ensure that pipeline differences are not confounded with training noise, all
 comparisons hold the following fixed: random seed, epoch permutation, model
 architecture and initialisation, batch size, optimiser and learning rate, and the
 augmentation pipeline.
-Each configuration is repeated \PLACEHOLDER{number of repeats} times and reported as
-mean $\pm$ standard deviation, because measurements on a shared filesystem are
-non-stationary and a single run is not evidence.
+Each configuration is intended to be repeated multiple times and reported as mean
+$\pm$ standard deviation, because measurements on a shared filesystem are
+non-stationary and a single run is not strong evidence on its own. This was not
+achieved for the RQ1--RQ4 and Section~\ref{ch:ablation} evaluation sweep as
+actually run: cluster time constraints meant each of the 91 configurations across
+that sweep was run once ($n=1$), and the GPU-utilisation and IoU figures reported
+in Sections~\ref{ch:results} and~\ref{ch:ablation} should be read as single-run
+point estimates, not as means with an established variance. This is a real
+limitation of the evidence collected, not merely of its reporting, and is stated
+plainly rather than implied by omitted error bars (Section~\ref{ch:futurework}
+returns to it). The one part of this thesis's evaluation that does use repeats is
+the accuracy-reproduction result of Appendix~\ref{app:reproduction}, where each
+architecture's IoU is a mean over ten independent test-set passes with a reported
+range, following the reference study's own protocol; that repetition is over
+test-time crop sampling for a fixed trained model, not over independent training
+runs, and does not substitute for the repeats this section originally specified.
 Jobs are submitted through Slurm with identical resource requests, and where
-possible scheduled on the same node class to control for hardware variation.
+possible scheduled on the same node class to control for hardware variation, which
+remains the intended protocol for any repeated version of this evaluation.
