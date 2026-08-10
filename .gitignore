@@ -49,6 +49,7 @@ best_trial_profile/
 *~
 .idea/
 .vscode/
+.claude/
 
 # Slurm
 *.out
