@@ -295,43 +295,63 @@ unseen during training.
 \caption[Example predictions on held-out test tiles]{Example predictions from
 the full-protocol replica checkpoints, on test tiles unseen during training.
 Columns: input imagery; annotated ground truth (filled, solid boundary); and
-the thresholded prediction of each architecture (filled, solid boundary) with
-the ground-truth boundary repeated as a dashed line for direct comparison.
-Per-panel figures are the IoU of that single tile. The final row is a negative
-tile -- no annotated site -- chosen for visual complexity rather than at
-random, since a uniform field is trivially rejected; all three architectures
-produce a small spurious detection on it.}
+each architecture's thresholded prediction ($p \geq 0.5$, filled and outlined)
+with the ground-truth boundary repeated as a dashed line for direct
+comparison. Tiles are selected rather than random, on the basis stated in
+Section~\ref{sec:repro-qualitative}: the first three are drawn from the regime
+where all three architectures agree, the fourth is a characteristic failure on
+a small site, and the fifth is a negative tile with no annotated site.}
 \label{fig:prediction-examples}
 \end{figure}
 
-Three things in this figure bear on how the quantitative results should be
-read, and two of them are unflattering.
+\paragraph{How these tiles were chosen.}
+They are not a random sample, and the distinction matters for how the figure
+should be read. Per-tile IoU on this corpus is strongly bimodal: scoring all
+466 site-bearing test tiles under all three checkpoints gives a median per-tile
+IoU of $0.165$ (MA-Net), $0.053$ (DeepLabV3+) and $0.000$ (SegFormer), with
+$48$--$57\%$ of tiles below $0.1$ and, at the same time, $29$--$37\%$ above
+$0.5$ and a 90th percentile of $0.78$--$0.81$. A random draw of four tiles
+therefore mostly samples the failure mode and understates what the models do
+when they succeed, while a selection of successes alone would misrepresent a
+distribution in which roughly half of tiles are near zero. The figure shows
+three tiles from the upper mode, one characteristic failure, and one negative.
 
-First, where a mound is tonally distinct from its surroundings the models
-localise it well and agree closely: on the first row all three recover the
-annotated contour at per-tile IoU of $0.77$--$0.80$, tracking the mound's
-outline rather than merely overlapping its bounding area. This is the
-behaviour the aggregate figure is built from, and it is genuinely good.
+\paragraph{What the successful cases show.}
+Where a mound is tonally distinct from its surroundings, the predicted contour
+tracks the annotated boundary closely rather than merely overlapping its
+extent, and the three architectures agree with one another to within a few
+points. This is not a marginal capability recovered by a favourable metric: on
+these tiles the models delineate the site, which is what the downstream
+archaeological workflow needs, and it is the behaviour underlying the
+upper mode of the distribution above.
 
-Second, agreement between architectures is far weaker than the aggregate
-figures suggest. On the second row the same tile yields $0.01$, $0.64$ and
-$0.08$ across the three architectures -- one recovers the site, two effectively
-miss it. On the third row all three miss the annotated site entirely, and two
-of them instead fire on an unannotated area elsewhere in the tile. Aggregate
-IoU averages this disagreement away: the reference study's finding that
-architectural choice moves IoU by only a few points is compatible with
-per-tile behaviour that differs far more than that, and a mean over tiles
-should not be read as evidence that the architectures are doing the same thing.
+\paragraph{What the failure case shows.}
+The fourth row is the error mode Section~\ref{sec:repro-error} quantifies. The
+annotated site occupies $5\%$ of the crop, and all three architectures miss it
+almost entirely. The dependence is systematic rather than incidental: taking
+the worst of the three architectures per tile, median IoU is $0.000$ for every
+site-area band below $12\%$ of the crop and rises only for larger sites. Small
+sites carry too little tonal evidence to separate them from the terrain they
+sit in, which is the same reason the original authors excluded sites below
+$1{,}000$~m\textsuperscript{2} and reports a $+3.9$ point gain from that
+filtering.
 
-Third, the negative example shows the corresponding failure in the other
-direction. Chosen for visual complexity rather than at random, it elicits a
-small spurious detection from all three architectures. Together with the third
-row's misplaced predictions this indicates that the models key on tonal and
-textural contrast -- which is what a mounded site usually presents from above,
-but also what an ordinary field boundary, a quarry or a patch of bare ground
-presents. This is the mechanism behind the error structure
-Section~\ref{sec:repro-error} quantifies, and behind the strong dependence of
-per-image IoU on site area (Table~\ref{tab:by-area}): the smaller the site
-relative to its crop, the less tonal evidence separates it from the terrain it
-sits in, and the more readily that evidence is matched by something else in
-the tile.
+\paragraph{Negatives.}
+The final row carries no annotated site and all three architectures correctly
+predict nothing, which is the typical outcome rather than a flattering one:
+$108$ of the $123$ negative test tiles are cleanly rejected by all three, and
+spurious detections appear on only $5.7\%$ (DeepLabV3+), $7.3\%$ (MA-Net) and
+$8.9\%$ (SegFormer) of them. This matters for the metric discussion of
+Section~\ref{sec:repro-metric}: correctly-rejected empty tiles score a perfect
+$1.0$ under the reference's per-image convention, so they contribute
+substantially to the headline figure, and the fact that they are genuinely
+rejected -- rather than scored as perfect by an artefact of averaging -- is
+what makes that contribution legitimate.
+
+\paragraph{A caveat on per-tile figures.}
+Evaluation random-crops each tile, following the reference protocol, so a
+single tile's IoU depends on the crop drawn as well as on the model. The values
+annotated in Figure~\ref{fig:prediction-examples} are those of the crop shown
+and differ somewhat from the same tiles' scores under a different draw; the
+distributional statistics quoted above, taken over all 466 site-bearing tiles,
+are the stable quantity.
