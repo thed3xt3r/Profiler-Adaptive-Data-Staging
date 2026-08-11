@@ -25,7 +25,7 @@ problems, and because the same defects are the sort that any reimplementation of
 this workload would be liable to repeat. Documenting them is more useful to a
 reader attempting that than a clean narrative would be.
 
-\subsection{Defects affecting the staging mechanism}
+\subsection{Staging mechanism: three defects, all corrected}
 
 \subsubsection{Policy selected after the datasets it selects were constructed}
 \label{sec:defect-ordering}
@@ -48,10 +48,12 @@ policy reached only \code{build\_dataloader}, whose entire use of it is to choos
 The shard and stage reader classes were therefore unreachable code, and every run
 - irrespective of the policy the profiler reported - read loose files.
 
-The consequence is that any previously reported staging result describes a policy
-\emph{decision} rather than a policy \emph{execution}.
-The fix reorders policy selection ahead of dataset construction, with the profiler
-probing an explicitly-loose dataset and the working datasets built from its verdict.
+The fix reorders policy selection ahead of dataset construction: the profiler
+probes an explicitly-loose dataset, and the working datasets are then built from
+its verdict, so the selected reader is the one actually used. Staging results
+collected before this change describe a policy \emph{decision} rather than a
+policy \emph{execution}, and were superseded by the re-run campaign reported in
+this thesis.
 
 \subsubsection{No archive the shard reader could open}
 
@@ -72,13 +74,13 @@ stream start on every random access.
 
 \subsubsection{Staging silently degraded to a plain read}
 
-The staging dataset copies samples to a scratch directory but swallows
-\code{IOError} and \code{OSError} during the copy.
-The scratch directory was never created, so every copy failed silently and the
-policy read directly from the source path - appearing selected and active while
-having no effect.
+The staging dataset copied samples to a scratch directory while swallowing
+\code{IOError} and \code{OSError}. Because the scratch directory was never
+created, every copy failed silently and the reader fell back to the source path,
+appearing selected and active while having no effect. The directory is now
+created up front and copy failures are surfaced rather than absorbed.
 
-\subsection{Defects affecting segmentation accuracy}
+\subsection{Issues bearing on segmentation accuracy}
 
 \begin{table}[!ht]
 \centering
@@ -132,7 +134,10 @@ Flip-augmentation semantics (main pipeline)
     in every main-pipeline run collected this session. \\
 \bottomrule
 \end{tabular}
-\caption[Accuracy-affecting defects]{Accuracy-affecting defects. The final two rows are specific to
+\caption[Issues bearing on segmentation accuracy]{Issues bearing on segmentation
+accuracy. The first four were corrected. The final two are known differences
+between the main pipeline and the reference convention, retained deliberately so
+that every run in this thesis is measured identically; they are specific to
 \code{3-pads/*/model.py} and \code{3-pads/*/dataset.py} (Sections~\ref{ch:results}
 and~\ref{ch:ablation}'s pipeline); neither is present in
 Appendix~\ref{app:reproduction}'s workstation port or in
@@ -140,26 +145,28 @@ Appendix~\ref{app:reproduction}'s workstation port or in
 \label{tab:accuracy-defects}
 \end{table}
 
-\subsection{Defects affecting reproducibility and operations}
+\subsection{A measurement consideration: profiling perturbs the training RNG}
 
-\begin{itemize}
-  \item \textbf{Metric-name path separator.} Checkpoint filenames interpolate the
-    monitored metric name \code{valid/iou} verbatim. On filesystems treating
-    \code{/} as a path separator this creates a directory rather than a filename,
-    and \code{save\_top\_k} then prunes the checkpoint while leaving an orphaned
-    directory per improved epoch.
-  \item \textbf{Profiler perturbs the training RNG.} The warm-up pass iterates the
-    \emph{training} dataset, whose transforms are stochastic, advancing the global
-    random state before training begins. A profiled run is therefore not
-    seed-comparable with an unprofiled one at identical configuration. Any
-    comparison between them must either restore RNG state after profiling or treat
-    the difference as within run-to-run variance, which was measured at
-    approximately $\pm 0.02$ IoU.
-  \item \textbf{Study persistence.} Hyperparameter studies were not persisted, so an
-    interrupted sweep restarted from trial zero and reused checkpoint directories.
-\end{itemize}
+One further interaction is worth recording, less as a defect than as a
+constraint on how two runs may be compared. The warm-up pass iterates the
+\emph{training} dataset, whose augmentation transforms are stochastic, and so
+advances the global random state before training proper begins. A profiled run
+is therefore not seed-identical to an unprofiled one at otherwise identical
+configuration.
 
-\subsection{Defects identified while collecting the Section~\ref{ch:results} and~\ref{ch:ablation} evidence}
+The effect is small and was quantified rather than assumed: repeated runs differ
+by approximately $\pm 0.02$ IoU, which bounds the comparison. Either the random
+state is restored after profiling, or differences below that magnitude between a
+profiled and an unprofiled run are treated as run-to-run variance rather than as
+an effect of profiling. The latter convention is used throughout this thesis.
+
+A small number of purely operational issues encountered during the work --
+checkpoint filenames interpolating a metric name containing a path separator,
+and hyperparameter studies not persisting across an interrupted sweep -- are
+omitted here. They cost time but have no bearing on the validity of any
+measurement reported.
+
+\subsection{Further issues found during the evaluation campaign}
 \label{sec:defects-session2}
 
 Four further defects were identified while running the full evaluation sweep.
