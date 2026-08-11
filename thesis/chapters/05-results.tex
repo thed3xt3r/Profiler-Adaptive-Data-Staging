@@ -302,7 +302,7 @@ an unexplained shortfall in the adaptive design.
 batches ($\approx$12--15\,s wall-clock), read in a fixed, unshuffled order, at the
 very start of a run. To test whether this window is representative, the same
 probe was re-run at \code{--profile\_batches 147} -- a full epoch -- instead of
-the default 8, for DeepLabV3+ and SegFormer.
+the default 8, for all three architectures.
 
 \begin{table}[!ht]
 \centering
@@ -312,6 +312,8 @@ Run & \Tdata{} (s) & \Tgpu{} (s) & Ratio & Policy chosen \\
 \midrule
 DeepLabV3+, 8-batch (default)        & 0.783 & 0.613 & 1.28 & loose \\
 DeepLabV3+, 147-batch (full epoch)   & 0.808 & \textbf{0.100} & \textbf{8.07} & shard \\
+MA-Net, 8-batch (default)            & 0.873 & 0.713 & 1.22 & loose \\
+MA-Net, 147-batch (full epoch)       & 0.874 & \textbf{0.093} & \textbf{9.41} & shard \\
 SegFormer, 8-batch (default)         & 0.752 & 0.655 & 1.15 & loose \\
 SegFormer, 147-batch (full epoch)    & 0.841 & \textbf{0.062} & \textbf{13.5} & shard \\
 \bottomrule
