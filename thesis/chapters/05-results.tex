@@ -43,7 +43,7 @@ DeepLabV3+  & default & 33.6 \\
 DeepLabV3+  & tuned   & 82.6 \\
 \bottomrule
 \end{tabular}
-\caption{GPU utilisation, default vs.\ tuned DataLoader, all three architectures.
+\caption[GPU utilisation, default vs.\ tuned DataLoader]{GPU utilisation, default vs.\ tuned DataLoader, all three architectures.
 Two loader flags -- raising \code{num\_workers} from 0 to 4 -- move utilisation by
 24--51 percentage points depending on architecture.}
 \label{tab:rq1-loader-util}
@@ -78,7 +78,7 @@ MA-Net     & 0.748 & 0.023 & $<0.001$ & 0.062 \\
 SegFormer  & 0.636 & 0.020 & $<0.001$ & 0.031 \\
 \bottomrule
 \end{tabular}
-\caption{Per-stage timing breakdown, batch size 32, \code{num\_workers=0}, measured
+\caption[Per-stage timing breakdown by architecture]{Per-stage timing breakdown, batch size 32, \code{num\_workers=0}, measured
 under the corrected profiler methodology of Section~\ref{sec:res-profiler-bias}
 (five warm-up batches discarded, then averaged over a full epoch). \Thtod{} is
 sub-millisecond throughout and never the bottleneck in any measurement in this
@@ -116,7 +116,7 @@ Policy & \code{open} calls/batch & \code{stat} calls/batch & Bytes read/batch \\
 loose (measured at $\gamma_d=1.5$) & 63.7 & 31.8 & 5{,}450{,}413 \\
 \bottomrule
 \end{tabular}
-\caption{Filesystem operations issued against GPFS per batch (batch size 32,
+\caption[Filesystem operations per batch, loose policy]{Filesystem operations issued against GPFS per batch (batch size 32,
 \code{num\_workers=0}, consistent across all three architectures since the reader
 and dataset composition are identical). Sharded and staged configurations were not
 independently instrumented for fs-op counts at this granularity in this session's
@@ -157,7 +157,7 @@ SegFormer  & 3. WebDataset               & 40.1 \\
            & 5. \pads{}                  & 39.5 \\
 \bottomrule
 \end{tabular}
-\caption{End-to-end comparison, methods 3--5 (methods 1--2 reuse
+\caption[End-to-end comparison, evaluation methods 3--5]{End-to-end comparison, methods 3--5 (methods 1--2 reuse
 Table~\ref{tab:rq1-loader-util}'s default/tuned runs, which are identical
 configurations). Segmentation quality under each of these configurations is
 reported in Appendix~\ref{app:reproduction},
@@ -210,7 +210,7 @@ DeepLabV3+ & 50.3 & 60.9 & \textbf{65.9} & 47.3 \\
 SegFormer  & 25.1 & 39.3 & \textbf{48.0} & 39.4 \\
 \bottomrule
 \end{tabular}
-\caption{Fixed prefetch depths against GPU utilisation. Depth is not
+\caption[GPU utilisation at fixed prefetch depths]{Fixed prefetch depths against GPU utilisation. Depth is not
 monotonically beneficial for DeepLabV3+ or SegFormer -- both peak at $d=4$ and
 fall at $d=8$ -- while MA-Net is nearly flat throughout, saturating its GPU
 almost immediately regardless of staging depth.}
@@ -220,7 +220,7 @@ almost immediately regardless of staging depth.}
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.75\linewidth]{rq4-prefetch-depth.png}
-\caption{GPU utilisation across the fixed prefetch-depth sweep, all three
+\caption[GPU utilisation across the prefetch-depth sweep]{GPU utilisation across the fixed prefetch-depth sweep, all three
 architectures. DeepLabV3+ and SegFormer both peak at $d=4$; MA-Net is flat.}
 \label{fig:rq4-depth}
 \end{figure}
@@ -236,7 +236,7 @@ SegFormer  & 5.7\,s / 5.69\,s & 24.5\,ms & 172 / 234 \\
 MA-Net     & 4.59\,s & 22.6\,ms & 205 \\
 \bottomrule
 \end{tabular}
-\caption{Auto-tuned depth via $d = \min(\lceil T_{stage}/T_{consume} \rceil + 1,
+\caption[Auto-tuned prefetch depth against measured staging time]{Auto-tuned depth via $d = \min(\lceil T_{stage}/T_{consume} \rceil + 1,
 d_{max})$. \textsuperscript{*}DeepLabV3+'s two measurements, taken minutes apart
 on identical hardware, differ by roughly 3,600$\times$ in $T_{stage}$ alone.}
 \label{tab:rq4-auto}
@@ -276,7 +276,7 @@ Warm-up window, full-epoch probe (143 batches, diagnostic only) & 107--137 \\
 Warm-up window, corrected default (discard 5, measure 8)        & $\approx 15$\textsuperscript{*} \\
 \bottomrule
 \end{tabular}
-\caption{Cost of adaptation, measured directly (Section~\ref{sec:res-profiler-bias}).
+\caption[Cost of the profiling window]{Cost of adaptation, measured directly (Section~\ref{sec:res-profiler-bias}).
 \textsuperscript{*}Estimated: 13 total batches processed (5 discarded, 8 measured)
 against 8 for the uncorrected default, at comparable per-batch cost.}
 \label{tab:overhead}
@@ -316,7 +316,7 @@ SegFormer, 8-batch (default)         & 0.752 & 0.655 & 1.15 & loose \\
 SegFormer, 147-batch (full epoch)    & 0.841 & \textbf{0.062} & \textbf{13.5} & shard \\
 \bottomrule
 \end{tabular}
-\caption{8-batch probe vs.\ full-epoch measurement, same architecture and
+\caption[8-batch probe vs.\ full-epoch measurement]{8-batch probe vs.\ full-epoch measurement, same architecture and
 configuration. \Tdata{} barely moves; the entire distortion is on \Tgpu{}, which
 drops 6--10$\times$ once measured over a full epoch instead of 8 batches.}
 \label{tab:profiler-bias-raw}
@@ -370,7 +370,7 @@ SegFormer  & 20.14 ($-$0.5\%) & 20.39 (+0.7\%) & 20.57 (+1.6\%) & 20.56 (+1.6\%)
 MA-Net     & 12.18 (+1.6\%) & 12.20 (+1.8\%) & 12.23 (+2.0\%) & 12.22 (+1.9\%) & \textbf{11.99} \\
 \bottomrule
 \end{tabular}
-\caption{Measured \Tdata{}/\Tgpu{} ratio by post-discard window size (5 batches
+\caption[Measured ratio by post-discard window size]{Measured \Tdata{}/\Tgpu{} ratio by post-discard window size (5 batches
 discarded before measurement begins), all three architectures, against each
 architecture's own 143-batch full-epoch measurement as ground truth. Percentages
 are deviation from that ground truth.}
@@ -380,7 +380,7 @@ are deviation from that ground truth.}
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.85\linewidth]{profiler-bias-sweep.png}
-\caption{Measured ratio by post-discard window size against the full-epoch ground
+\caption[Measured ratio against the full-epoch ground truth]{Measured ratio by post-discard window size against the full-epoch ground
 truth, all three architectures. The $\times$ markers are the uncorrected 8-batch
 measurement (no discard) for comparison.}
 \label{fig:profiler-bias-sweep}

@@ -49,7 +49,7 @@ SegFormer  & None (loose)            & 42.1 \\
            & Full \pads{} (adaptive) & 41.0 \\
 \bottomrule
 \end{tabular}
-\caption{Component ablation, GPU utilisation by policy component, all three
+\caption[Component ablation: GPU utilisation by policy component]{Component ablation, GPU utilisation by policy component, all three
 architectures. Shard+stage combined is not expressible in the current
 implementation (see text). Segmentation quality under these same configurations
 is reported in Appendix~\ref{app:reproduction},
@@ -100,7 +100,7 @@ Scratch budget & DeepLabV3+ & MA-Net & SegFormer \\
   0\% (staging unavailable) & 79.8 & 85.8 & 52.0 \\
 \bottomrule
 \end{tabular}
-\caption{Behaviour as scratch capacity is constrained. Method~4 of
+\caption[Behaviour as scratch capacity is constrained]{Behaviour as scratch capacity is constrained. Method~4 of
 Section~\ref{sec:evaluation-plan} is unavailable below 100\%.}
 \label{tab:ablation-scratch}
 \end{table}
@@ -108,7 +108,7 @@ Section~\ref{sec:evaluation-plan} is unavailable below 100\%.}
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.85\linewidth]{ablation-scratch-capacity.png}
-\caption{GPU utilisation vs.\ scratch-capacity budget, all three architectures.
+\caption[GPU utilisation vs.\ scratch-capacity budget]{GPU utilisation vs.\ scratch-capacity budget, all three architectures.
 DeepLabV3+'s 100\%-capacity run is the worst-performing configuration in the
 entire sweep.}
 \label{fig:ablation-scratch}
@@ -177,7 +177,7 @@ SegFormer  & 1.00 & 1.23 & \textbf{shard} & 49.6 \\
            & 2.00 & 1.20 & loose & 43.0 \\
 \bottomrule
 \end{tabular}
-\caption{Sensitivity of the policy decision to the classification threshold, all
+\caption[Sensitivity of the policy decision to the threshold]{Sensitivity of the policy decision to the classification threshold, all
 three architectures. Only 2 of 12 runs ever left \code{loose}, both at the
 single lowest threshold tested and both right at the ratio boundary. These
 measured ratios predate the correction of Section~\ref{sec:res-profiler-bias};
@@ -189,7 +189,7 @@ would clear every threshold tested here.}
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=\linewidth]{ablation-threshold-sensitivity.png}
-\caption{Measured ratio vs.\ decision threshold $\gamma_d$, all three
+\caption[Measured ratio vs.\ decision threshold]{Measured ratio vs.\ decision threshold $\gamma_d$, all three
 architectures. Circled points switched policy away from \code{loose}.}
 \label{fig:ablation-thresholds}
 \end{figure}

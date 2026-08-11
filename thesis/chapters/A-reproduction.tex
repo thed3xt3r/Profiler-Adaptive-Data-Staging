@@ -111,7 +111,7 @@ MA-Net     & 0.735 & 0.729--0.742 \\
 Reference (Casini et al., Model~1) & \textbf{0.7417} & $\pm 0.0038$ \\
 \bottomrule
 \end{tabular}
-\caption{Full-protocol replica results, all three architectures, against the
+\caption[Full-protocol replica results against the reference]{Full-protocol replica results, all three architectures, against the
 reference figure. Standard deviation across the ten test passes was 0.003--0.004
 for each architecture -- tight enough that the result is not an artefact of a
 favourable single run.}
@@ -169,7 +169,7 @@ Per-image mean, site-bearing tiles only           & 0.3364 \\
 Per-image mean, all tiles (reference convention)  & \textbf{0.4504} \\
 \bottomrule
 \end{tabular}
-\caption{Effect of the aggregation convention on reported IoU for an identical
+\caption[Effect of the IoU aggregation convention]{Effect of the aggregation convention on reported IoU for an identical
 model. The reference convention counts a correctly-predicted empty tile as a
 perfect match.}
 \label{tab:reduction}
@@ -203,7 +203,7 @@ Site area in crop & Tiles & Mean IoU & Fraction $< 0.1$ \\
 30--100\%   &  86 & 0.488 & 0.23 \\
 \bottomrule
 \end{tabular}
-\caption{Per-image IoU by the fraction of the cropped tile occupied by the
+\caption[Per-image IoU by site area in the crop]{Per-image IoU by the fraction of the cropped tile occupied by the
 annotated site.}
 \label{tab:by-area}
 \end{table}
@@ -249,7 +249,7 @@ SegFormer  & none (loose)            & 0.3647 \\
            & full \pads{} (adaptive) & 0.3757 \\
 \bottomrule
 \end{tabular}
-\caption{Segmentation quality by data-path policy, for the same runs whose
+\caption[Segmentation quality by data-path policy]{Segmentation quality by data-path policy, for the same runs whose
 throughput is reported in Section~\ref{ch:results},
 Table~\ref{tab:rq3-endtoend} and Section~\ref{ch:ablation},
 Table~\ref{tab:ablation-components}. IoU here is the main-pipeline pooled

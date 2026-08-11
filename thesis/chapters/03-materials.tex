@@ -184,7 +184,7 @@ Model 5 & Bing 2k          & \checkmark & 81.54 & 0.35 \\
 Model 6 & Bing + CORONA 2k & \checkmark & 83.45 & 0.18 \\
 \bottomrule
 \end{tabular}
-\caption{IoU scores reported by Casini et al.~\cite{Casini23} for their
+\caption[IoU scores reported by Casini et al.]{IoU scores reported by Casini et al.~\cite{Casini23} for their
 experimental configurations.}
 \label{tab:casini-reference}
 \end{table}
@@ -302,7 +302,7 @@ Batch size           & 32     & 32      & 32 \\
 GPU utilisation (\%) & 16.0   & 34.4    & 33.6 \\
 \bottomrule
 \end{tabular}
-\caption{Baseline characteristics with the default PyTorch \code{DataLoader}
+\caption[Baseline characteristics, default DataLoader]{Baseline characteristics with the default PyTorch \code{DataLoader}
 (\code{num\_workers=0}).}
 \label{tab:baseline-default}
 \end{table}
@@ -320,7 +320,7 @@ Batch size           & 32     & 32      & 32 \\
 GPU utilisation (\%) & 40.5   & 85.1    & 82.6 \\
 \bottomrule
 \end{tabular}
-\caption{Characteristics with loader parameters tuned
+\caption[Characteristics with tuned loader parameters]{Characteristics with loader parameters tuned
 (\code{num\_workers=4}, \code{pin\_memory=True}).}
 \label{tab:baseline-tuned}
 \end{table}
