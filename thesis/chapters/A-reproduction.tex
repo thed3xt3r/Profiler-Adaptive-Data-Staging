@@ -141,7 +141,7 @@ confusion-matrix counts across the validation split rather than averaging
 per-image (Section~\ref{sec:repro-metric} quantifies a 3.7-point effect from this
 alone on one checkpoint), and a flip-augmentation implementation that applies two
 independent single-axis flips rather than the reference's \code{A.Flip}
-semantics (Section~\ref{sec:defect-augmentation}, Appendix~\ref{app:defects}).
+semantics (Appendix~\ref{app:defects}, Table~\ref{tab:accuracy-defects}).
 Both are properties of \code{3-pads/*/model.py} and \code{3-pads/*/dataset.py}
 specifically, not of this appendix's already-faithful port or of
 \code{0-reproduction}; neither pipeline used to produce

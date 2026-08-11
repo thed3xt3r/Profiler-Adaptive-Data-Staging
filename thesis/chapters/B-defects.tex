@@ -112,7 +112,6 @@ fp16 divergence on EfficientNet
     Resolved by \code{bf16-mixed}; a guard now aborts at the epoch a loss becomes
     non-finite. \\
 IoU averaging convention (main pipeline)
-  \label{sec:defect-metric}
   & \code{3-pads/*/model.py} computes validation/test IoU with
     \code{torchmetrics.BinaryJaccardIndex}, which pools confusion-matrix counts
     across the whole split before dividing, rather than the reference's
@@ -122,7 +121,6 @@ IoU averaging convention (main pipeline)
     \code{0-reproduction}, both of which use \code{smp.metrics.iou\_score}
     with \code{reduction="macro-imagewise"} throughout. \\
 Flip-augmentation semantics (main pipeline)
-  \label{sec:defect-augmentation}
   & \code{3-pads/*/dataset.py} applies two independent single-axis flip
     transforms rather than the reference's \code{A.Flip}, which selects one of
     \{vertical, horizontal, both\} uniformly (Appendix~\ref{app:reproduction},
