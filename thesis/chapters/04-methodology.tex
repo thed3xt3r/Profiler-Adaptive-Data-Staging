@@ -58,7 +58,7 @@ The signals measured are given in Table~\ref{tab:signals}.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{ll}
+\begin{tabularx}{\textwidth}{@{}lL@{}}
 \toprule
 Signal & Meaning \\
 \midrule
@@ -71,7 +71,7 @@ Queue fullness  & \code{DataLoader} output-queue depth \\
 Shard size      & Whether the next shard can be staged efficiently \\
 Scratch availability & Whether node-local scratch has free capacity \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Signals recorded during the warm-up window.}
 \label{tab:signals}
 \end{table}
@@ -302,22 +302,27 @@ hardware, with only the data path varying (Table~\ref{tab:evaluation-plan}).
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{clp{6.4cm}}
+\begin{tabularx}{\textwidth}{@{}c L L@{}}
 \toprule
 \# & Method & What it isolates \\
 \midrule
-1 & Baseline PyTorch \code{DataLoader} - loose files, default settings
+1 & Baseline PyTorch \code{DataLoader} -- loose files, default settings
   & The unmodified starting point \\
-2 & Tuned PyTorch \code{DataLoader} - best \code{num\_workers}, \code{pin\_memory}, \code{prefetch\_factor}
+\addlinespace[2pt]
+2 & Tuned PyTorch \code{DataLoader} -- best \code{num\_workers},
+    \code{pin\_memory}, \code{prefetch\_factor}
   & How much is recoverable by manual tuning alone; \pads{} must beat this, not merely the naive baseline \\
-3 & WebDataset - fixed tar-shard streaming, no adaptation
+\addlinespace[2pt]
+3 & WebDataset -- fixed tar-shard streaming, no adaptation
   & Isolates the benefit of sharding from the benefit of adaptation (RQ2 vs RQ3) \\
-4 & Scratch baseline - loose files copied manually to node-local scratch up front
+\addlinespace[2pt]
+4 & Scratch baseline -- loose files copied manually to node-local scratch up front
   & Isolates the benefit of staging from the benefit of predicting what to stage; the ceiling for any policy that removes GPFS from the path \\
-5 & \pads{} (proposed) - adaptive staging + predictive prefetch
-  & - \\
+\addlinespace[2pt]
+5 & \pads{} (proposed) -- adaptive staging + predictive prefetch
+  & --- \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Evaluation methods and the contrast each provides.}
 \label{tab:evaluation-plan}
 \end{table}

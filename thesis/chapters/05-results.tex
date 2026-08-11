@@ -111,9 +111,9 @@ in this configuration.
 \centering
 \begin{tabular}{lccc}
 \toprule
-Policy & \code{open} calls/batch & \code{stat} calls/batch & Bytes read/batch \\
+Policy & \code{open}/batch & \code{stat}/batch & Bytes/batch \\
 \midrule
-loose (measured at $\gamma_d=1.5$) & 63.7 & 31.8 & 5{,}450{,}413 \\
+loose (at $\gamma_d=1.5$) & 63.7 & 31.8 & 5{,}450{,}413 \\
 \bottomrule
 \end{tabular}
 \caption[Filesystem operations per batch, loose policy]{Filesystem operations issued against GPFS per batch (batch size 32,
@@ -267,13 +267,13 @@ formula rather than glossed over.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{lcc}
+\begin{tabular}{lc}
 \toprule
- & Wall-clock (s) \\
+Warm-up window & Wall-clock (s) \\
 \midrule
-Warm-up window, uncorrected default (8 batches, no discard)   & 12--15 \\
-Warm-up window, full-epoch probe (143 batches, diagnostic only) & 107--137 \\
-Warm-up window, corrected default (discard 5, measure 8)        & $\approx 15$\textsuperscript{*} \\
+Uncorrected default (8 batches, no discard)   & 12--15 \\
+Full-epoch probe (143 batches, diagnostic only) & 107--137 \\
+Corrected default (discard 5, measure 8)        & $\approx 15$\textsuperscript{*} \\
 \bottomrule
 \end{tabular}
 \caption[Cost of the profiling window]{Cost of adaptation, measured directly (Section~\ref{sec:res-profiler-bias}).
@@ -361,6 +361,8 @@ candidate window size.
 
 \begin{table}[!ht]
 \centering
+\small
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lccccc}
 \toprule
 Architecture & 8 batches & 16 batches & 32 batches & 64 batches & 143 (full) \\
