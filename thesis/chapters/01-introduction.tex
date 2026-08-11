@@ -29,7 +29,11 @@ component in a human--AI workflow, not a replacement for the archaeologist.
 
 The present work takes that workload as given and asks a different question.
 Training such models on a shared HPC cluster is conventionally treated as a problem
-of accelerator throughput: the model is profiled, the batch size is tuned, mixed
+of \emph{accelerator} throughput -- the accelerator being the specialised
+processor that performs the training computation, in this work an NVIDIA GPU
+throughout, and the term used where the argument does not depend on the device
+being a GPU specifically.
+The model is profiled, the batch size is tuned, mixed
 precision is enabled, and the data path is assumed to keep up.
 For this workload that assumption does not hold.
 The corpus consists of thousands of individually stored image and mask files on a

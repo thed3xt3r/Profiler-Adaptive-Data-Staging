@@ -1,7 +1,7 @@
 \section*{Abstract}
 
 Deep learning training on high-performance computing (HPC) clusters is conventionally
-treated as a problem of accelerator throughput, and optimisation effort is directed
+treated as a problem of GPU throughput, and optimisation effort is directed
 at the model.
 For semantic segmentation over remotely sensed imagery, however, the training corpus
 is typically stored as very large numbers of small image and mask files on a shared
@@ -10,7 +10,7 @@ parallel filesystem, and the cost of reaching those files is borne once per samp
 We show that for a representative archaeological site-detection workload
 - the detection of mounded settlement sites (\emph{tells}) in the southern
 Mesopotamian floodplain~\cite{Casini23} -
-the accelerator is frequently idle while the data path is the binding constraint:
+the GPU is frequently idle while the data path is the binding constraint:
 across three architectures, time spent waiting on data exceeds forward-and-backward
 compute time by 8--20$\times$ under a default loader configuration, and two loader
 flags alone move GPU utilisation by 24--51 percentage points. Segmentation quality
