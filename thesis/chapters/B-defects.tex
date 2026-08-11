@@ -1,15 +1,29 @@
 %% ============================================================================
-\section{Pipeline Defects Identified During Reproduction}
+\section{Pipeline Defects Found and Corrected}
 \label{app:defects}
-\addcontentsline{lot}{section}{Pipeline Defects Identified During Reproduction}
+\addcontentsline{lot}{section}{Pipeline Defects Found and Corrected}
 %% ============================================================================
 
 Porting the training code to a second environment surfaced a number of defects in
-the experimental pipeline.
-They are documented here because several are silent - they degrade results or
-invalidate measurements without raising an error - and because two of them
-invalidate earlier data-staging measurements and therefore bear directly on the
-claims this thesis is able to make.
+the experimental pipeline. This appendix records them, what each one did to the
+measurements, and how it was resolved.
+
+Two things are worth stating at the outset, because the length of the list
+invites a misreading. First, almost all of these defects are \emph{silent}: they
+degrade results or invalidate measurements without raising an error, which is
+precisely why they survive casual testing and why porting to a second
+environment is an effective way to find them. A pipeline that produced plausible
+numbers throughout was, in several respects, not measuring what it reported.
+Second, all but the few explicitly identified below as outstanding were fixed,
+and every result reported in Sections~\ref{ch:results} and~\ref{ch:ablation} was
+collected after those fixes were in place -- the evaluation sweep post-dates the
+corrections by a week. This appendix is therefore a record of defects found and
+closed, not a list of caveats attaching to the results.
+
+It is included because reproduction is the mechanism that surfaced these
+problems, and because the same defects are the sort that any reimplementation of
+this workload would be liable to repeat. Documenting them is more useful to a
+reader attempting that than a clean narrative would be.
 
 \subsection{Defects affecting the staging mechanism}
 
@@ -197,30 +211,53 @@ and~\ref{ch:ablation}.
     8-batch profiling window included one-time CUDA/cuDNN warm-up cost in its
     \Tgpu{} average, inflating it 6--10$\times$ and systematically suppressing
     the adaptive policy across most of Section~\ref{ch:ablation}'s threshold
-    sweep. This is not merely an undocumented gap: Section~\ref{ch:methodology}
-    already specifies discarding the first $w_0=10$ batches and aggregating by
-    median rather than mean, for exactly this reason, in exactly these words.
-    The shipped \code{profile\_data\_pipeline()} implemented neither. Discard
-    was implemented and validated this session (\code{--sweep\_discard}); median
-    aggregation was not, and remains genuinely open -- it is plausible that
-    switching from mean to median would provide some robustness independent of
-    discarding, since a median is inherently less sensitive to a small number
-    of outlying (warm-up) samples than a mean is, but this has not been tested,
-    and claiming it as fixed would overstate what this session actually did.
+    sweep. The design had anticipated this failure mode:
+    Section~\ref{ch:methodology} specifies discarding the first $w_0=10$
+    batches and aggregating by median rather than mean, for precisely this
+    reason. The divergence was between that specification and the shipped
+    \code{profile\_data\_pipeline()}, which implemented neither safeguard --
+    which is also why the fix was straightforward once the symptom was
+    traced. Discard is now implemented and validated
+    (\code{--sweep\_discard}), recovering full-epoch measurement accuracy at
+    negligible cost. Median aggregation remains untested: a median is
+    inherently less sensitive than a mean to a small number of outlying
+    warm-up samples, so it may add robustness independent of discarding, but
+    that has not been measured and is not claimed here.
     Included in this list because, unlike the first three defects, it is a
     correctness defect in \pads{} itself rather than in the evaluation
     infrastructure, and it directly affects how several results in
     Sections~\ref{ch:results} and~\ref{ch:ablation} should be interpreted.
 \end{itemize}
 
-\subsection{Implication for prior results}
+\subsection{Implication for the results reported in this thesis}
 
-Sections~\ref{sec:defect-ordering} and the missing archives are the consequential
-ones.
-Because the selected policy never reached the data path, and because the shard
-policy had no readable data in any case, staging results collected before these
-fixes report decisions rather than executions.
-They are not recoverable by reanalysis and the corresponding experiments require
-repetition.
-The defects are properties of the code rather than of any particular machine, and
-therefore applied equally to cluster runs.
+Section~\ref{sec:defect-ordering} and the missing archives were the consequential
+defects. Because the selected policy never reached the data path, and because the
+shard policy had no readable data in any case, any staging result collected
+before those fixes describes a policy \emph{decision} rather than a policy
+\emph{execution}. Such results are not recoverable by reanalysis; the
+experiments had to be re-run.
+
+They were. Both defects were corrected before the evaluation campaign reported
+in this thesis was carried out, and the full sweep was then collected against
+the fixed pipeline. Every figure in Sections~\ref{ch:results}
+and~\ref{ch:ablation} therefore describes policies that actually executed, with
+the shard and stage readers reachable and supplied with archives in a layout
+they can open. The measurements that motivated this appendix have been
+superseded rather than merely annotated, and no result presented in this thesis
+rests on them.
+
+One qualification belongs here rather than in the main text. That the staging
+policies now execute does not mean the adaptive layer routinely selects them:
+Section~\ref{sec:res-profiler-bias} establishes that the profiler's warm-up
+measurement was biased in a way that suppressed staging across most of the
+threshold sweep, which is a separate defect with a separate resolution. The
+distinction matters for reading Section~\ref{ch:ablation}: where a run reports
+\code{loose}, that is now a decision the profiler genuinely made on the evidence
+available to it, not an artefact of the selected policy failing to reach the
+data path.
+
+Finally, these defects are properties of the code rather than of any particular
+machine, and applied equally to workstation and cluster runs. That is what makes
+them worth documenting: none would have been caught by running the same code
+again on the same hardware.
