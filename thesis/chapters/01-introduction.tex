@@ -1,5 +1,6 @@
 %% ============================================================================
 \section{Introduction}
+\label{ch:introduction}
 \addcontentsline{lof}{section}{Introduction}
 %% ============================================================================
 
@@ -26,6 +27,28 @@ of roughly five thousand ground-truthed sites and reported intersection-over-uni
 domain expert had adjudicated the predictions.
 That work also established the framing that this thesis inherits: the model is a
 component in a human--AI workflow, not a replacement for the archaeologist.
+
+Figure~\ref{fig:prediction-examples} shows what the task looks like in practice,
+using the reproduction checkpoints of Appendix~\ref{app:reproduction} on
+held-out tiles. Where a mound is tonally distinct from the surrounding land, all
+three architectures recover its outline closely and agree with one another;
+performance falls away on small sites, and
+Section~\ref{sec:repro-qualitative} characterises that dependence in full.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=\linewidth]{prediction-examples.png}
+\caption[Example predictions on held-out test tiles]{The segmentation task.
+Columns: input satellite imagery; the archaeologist's annotated outline
+(filled, solid boundary); and each architecture's predicted outline (filled,
+solid boundary) with the annotation repeated as a dashed line for comparison.
+Rows one to three are representative of the regime where all three
+architectures agree; row four is a characteristic failure on a small site; row
+five is a tile containing no site. Examples are selected, not randomly
+sampled -- Section~\ref{sec:repro-qualitative} gives the selection basis and
+the full score distribution.}
+\label{fig:prediction-examples}
+\end{figure}
 
 The present work takes that workload as given and asks a different question.
 Training such models on a shared HPC cluster is conventionally treated as a problem
