@@ -61,7 +61,7 @@ Under this configuration the reproduction attained an IoU of
 $\mathbf{0.4470 \pm 0.0059}$ under the reference reduction, against the published
 $0.7417 \pm 0.0038$.
 
-The discrepancy is attributable to accelerator memory.
+The discrepancy is attributable to GPU memory.
 The reference configuration trains at batch size 32.
 Measured peak allocation for MA-Net/EfficientNet-B3 at $256 \times 256$ in fp32 is
 2.44~GB at batch 8, 4.65~GB at batch 16, and out-of-memory at batch 32 on a 4~GB

@@ -13,7 +13,7 @@ workload the GPU is frequently not the constraint.
 Four findings motivate \pads{}:
 
 \begin{enumerate}
-  \item \textbf{GPU starvation.} With \code{num\_workers=0}, the accelerator sits
+  \item \textbf{GPU starvation.} With \code{num\_workers=0}, the GPU sits
     idle between batches. It is waiting on the data path, not on the model.
   \item \textbf{Shared filesystem pressure.} Thousands of small image and mask files
     generate high metadata overhead on GPFS. The cost is dominated not by bytes
@@ -66,7 +66,7 @@ Signal & Meaning \\
 \Tdecode{} & Image and mask decode time, plus augmentation transforms \\
 \Thtod{}   & Host-to-device (CPU$\rightarrow$GPU) transfer time \\
 \Tgpu{}    & Model forward + backward time \\
-GPU utilisation & Accelerator occupancy over the window \\
+GPU utilisation & GPU occupancy over the window \\
 Queue fullness  & \code{DataLoader} output-queue depth \\
 Shard size      & Whether the next shard can be staged efficiently \\
 Scratch availability & Whether node-local scratch has free capacity \\
@@ -141,7 +141,7 @@ The classifier therefore emits a \emph{set} of actions rather than a single labe
 
 \paragraph{Thresholds.}
 The rules are expressed as ratios rather than absolute times, so that they transfer
-across accelerators of different speeds.
+across GPUs of different speeds.
 Writing $\tau = \max(\Tdecode{}, \Tgpu{})$, the implementation used here declares:
 
 \begin{align}
@@ -258,7 +258,7 @@ Two families of metric are reported.
 
 \paragraph{Pipeline metrics (the object of the optimisation).}
 \begin{itemize}
-  \item \textbf{GPU utilisation} - mean accelerator occupancy over the run, the
+  \item \textbf{GPU utilisation} - mean GPU occupancy over the run, the
     headline indicator of whether starvation has been eliminated.
   \item \textbf{Tile throughput} - samples processed per second; the end-to-end
     figure of merit.

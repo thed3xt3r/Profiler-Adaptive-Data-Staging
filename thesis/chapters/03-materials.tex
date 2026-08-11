@@ -339,7 +339,7 @@ accuracy for the throughput gains reported here.
 \subsection{Hardware and software environment}
 
 All primary experiments were run on the Iris cluster at the University of
-Luxembourg, on GPU nodes equipped with NVIDIA V100 accelerators, scheduled via
+Luxembourg, on GPU nodes equipped with NVIDIA V100 GPUs, scheduled via
 Slurm.
 Storage is provided by a shared GPFS filesystem, with node-local scratch available
 for staging.
@@ -352,7 +352,7 @@ A secondary, single-GPU workstation environment (NVIDIA RTX~3050 Laptop, 4~GB) w
 used for development, defect analysis and reproduction work.
 Appendix~\ref{app:reproduction} documents that environment and, importantly, the
 respects in which results obtained on it are \emph{not} comparable to the cluster
-results reported above - most consequentially the accelerator memory limit, which
+results reported above - most consequentially the GPU memory limit, which
 forbids the batch size of 32 used throughout the primary experiments and thereby
 degrades batch-normalisation statistics.
 That constraint is the reason all accuracy figures in this thesis are drawn from the
