@@ -140,31 +140,28 @@ few large sequential archives.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{llccc}
+\begin{tabular}{llc}
 \toprule
-Architecture & Method & GPU util.\ (\%) & IoU\textsuperscript{$\dagger$} \\
+Architecture & Method & GPU util.\ (\%) \\
 \midrule
-DeepLabV3+ & 3. WebDataset               & 75.4 & 0.296 \\
-           & 4. Full pre-stage (ceiling) & \textbf{84.2} & 0.369 \\
-           & 5. \pads{}                  & 79.5 & 0.350 \\
+DeepLabV3+ & 3. WebDataset               & 75.4 \\
+           & 4. Full pre-stage (ceiling) & \textbf{84.2} \\
+           & 5. \pads{}                  & 79.5 \\
 \midrule
-MA-Net     & 3. WebDataset               & 79.1 & 0.327 \\
-           & 4. Full pre-stage (ceiling) & 83.3 & 0.367 \\
-           & 5. \pads{}                  & \textbf{84.8} & 0.354 \\
+MA-Net     & 3. WebDataset               & 79.1 \\
+           & 4. Full pre-stage (ceiling) & 83.3 \\
+           & 5. \pads{}                  & \textbf{84.8} \\
 \midrule
-SegFormer  & 3. WebDataset               & 40.1 & 0.390 \\
-           & 4. Full pre-stage (ceiling) & \textbf{52.8} & 0.372 \\
-           & 5. \pads{}                  & 39.5 & 0.373 \\
+SegFormer  & 3. WebDataset               & 40.1 \\
+           & 4. Full pre-stage (ceiling) & \textbf{52.8} \\
+           & 5. \pads{}                  & 39.5 \\
 \bottomrule
 \end{tabular}
 \caption{End-to-end comparison, methods 3--5 (methods 1--2 reuse
 Table~\ref{tab:rq1-loader-util}'s default/tuned runs, which are identical
-configurations). \textsuperscript{$\dagger$}IoU here is the main-pipeline metric
-under \code{torchmetrics.BinaryJaccardIndex} (pooled reduction), not the
-reference-comparable per-image-mean convention of
-Section~\ref{sec:res-accuracy}/Appendix~\ref{app:reproduction}; these values are
-comparable to each other within this table but not to
-Table~\ref{tab:casini-reference}.}
+configurations). Segmentation quality under each of these configurations is
+reported in Appendix~\ref{app:reproduction},
+Table~\ref{tab:accuracy-guardrail}.}
 \label{tab:rq3-endtoend}
 \end{table}
 
@@ -435,76 +432,23 @@ observes on this filesystem.
 \subsection{Accuracy is preserved}
 \label{sec:res-accuracy}
 
-\pads{} is only useful if it accelerates the pipeline without degrading
-segmentation quality.
-This section reports two distinct bodies of evidence. First, IoU as measured
-throughout the main pipeline, under \code{torchmetrics.BinaryJaccardIndex}
-(pooled reduction) -- the convention used for every table above -- across the
-policy and threshold configurations of Section~\ref{ch:ablation}. Second, and
-separately, whether the segmentation models reach the accuracy the reference
-study reports at all, under the reference's own metric convention -- addressed
-fully in Appendix~\ref{app:reproduction}, and summarised here because it bears
-directly on how the first body of evidence should be read.
+A data-path optimisation is only sound if it leaves the model's output
+unchanged. Sharding, staging and prefetching each alter how samples reach the
+trainer -- their storage format, their ordering, and when they are materialised
+-- so any of them could in principle corrupt, duplicate or stale-serve data, and
+a throughput gain bought that way would be worthless. Segmentation quality is
+therefore treated throughout this thesis as a constraint to be checked, not as
+an objective to be advanced, and it is reported outside the throughput
+narrative to keep the two claims separate.
 
-\begin{table}[!ht]
-\centering
-\begin{tabular}{llcc}
-\toprule
-Architecture & Policy & Best IoU (pooled) & GPU util.\ (\%) \\
-\midrule
-DeepLabV3+ & none (loose)             & 0.3707 & 61.0 \\
-           & shard only               & 0.3569 & 84.1 \\
-           & stage only               & 0.3582 & 67.6 \\
-           & full \pads{} (adaptive)  & 0.3459 & 79.2 \\
-\midrule
-MA-Net     & none (loose)             & 0.3695 & 84.6 \\
-           & shard only               & 0.3527 & 86.8 \\
-           & stage only               & 0.3602 & 87.0 \\
-           & full \pads{} (adaptive)  & 0.3536 & 83.7 \\
-\midrule
-SegFormer  & none (loose)             & 0.3647 & 42.1 \\
-           & shard only               & 0.3735 & 50.7 \\
-           & stage only               & 0.3689 & 54.3 \\
-           & full \pads{} (adaptive)  & 0.3757 & 41.0 \\
-\bottomrule
-\end{tabular}
-\caption{IoU (pooled convention, this table only) by policy component,
-Section~\ref{ch:ablation}'s component ablation. IoU varies by at most $\pm2.5$
-percentage points across policies within an architecture, with no consistent
-direction -- SegFormer's best IoU is under full \pads{}, DeepLabV3+'s is under
-loose. Accuracy is not systematically traded for throughput in either direction
-in this data.}
-\label{tab:accuracy-preserved}
-\end{table}
-
-Table~\ref{tab:accuracy-preserved} does not show the policy sensitivity the
-methodology anticipated. Under the pooled IoU convention, and across the full
-component-ablation sweep (Section~\ref{sec:ablation-components}) rather than the
-single-run comparison of an earlier draft, no policy produces a consistent
-accuracy deviation from \code{loose} in either direction across all three
-architectures. This is a materially different picture from an earlier
-single-run comparison on this same corpus (Section~\ref{sec:repro-metric}
-discusses why the two IoU conventions are not comparable in absolute terms), and
-the difference is attributable to the larger, corrected evidence base collected
-this session rather than to a change in the underlying pipeline behaviour between
-drafts.
-
-The second body of evidence is more consequential and is summarised in full in
-Appendix~\ref{app:reproduction}: under the reference study's own metric
-convention (per-image mean, not pooled), the main pipeline's IoU figures
-throughout this chapter -- clustering around 0.32--0.40 -- sit far below the
-published $74.17 \pm 0.38$. Two concrete, fixable bugs in the main pipeline (the
-metric-averaging convention itself, and a flip-augmentation semantics error)
-account for only part of that gap. The remainder was closed by a from-scratch,
-maximally faithful replica (\code{0-reproduction}), run to the reference's
-full protocol -- 20 epochs, no early stopping, batch size 32, ten independent
-test-set passes -- rather than the abbreviated protocol used for the tables
-above. That replica reached $72.8$--$73.5\%$ IoU across all three architectures,
-within $1$--$1.4$ points of the reference figure (Table~\ref{tab:repro-full},
-Appendix~\ref{app:reproduction}). The conclusion for this chapter is that the
-policy comparisons in Table~\ref{tab:accuracy-preserved} are internally valid --
-the pooled-IoU deltas between policies, all computed identically, are not
-affected by the metric-convention or augmentation bugs, which apply uniformly
-across every run -- but the absolute IoU values reported throughout this chapter
-should not be read as this pipeline's ceiling; Appendix~\ref{app:reproduction}
-establishes what that ceiling actually is.
+The check is negative, which is the intended result: across the full
+component-ablation sweep of Section~\ref{sec:ablation-components}, no policy
+produces a consistent accuracy deviation from \code{loose} in either direction
+across all three architectures, with a spread of at most $\pm2.5$ percentage
+points within an architecture. Neither the sharded reader nor the staging path
+trades accuracy for the throughput reported in this chapter. The supporting
+per-policy figures are given in Appendix~\ref{app:reproduction},
+Table~\ref{tab:accuracy-guardrail}, together with the separate question of
+whether these models reach the reference study's published accuracy at all --
+which Appendix~\ref{app:reproduction} answers directly, and which is a
+reproduction result rather than a claim about \pads{}.

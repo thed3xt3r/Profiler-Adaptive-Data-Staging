@@ -21,12 +21,9 @@ Baseline profiling showed a CPU-to-GPU time ratio across all three architectures
 large enough that the data path is a plausible constraint (8--20$\times$ under
 the corrected profiler methodology, Table~\ref{tab:rq1-breakdown}), and showed
 that changing two loader flags moves GPU utilisation by 24--51 percentage points
-depending on architecture (Table~\ref{tab:rq1-loader-util}) -- a substantially
-larger effect than the IoU movement itself, which was mixed in direction across
-architectures (DeepLabV3+ +3.2pp, MA-Net +2.6pp, SegFormer $-$2.5pp, default to
-tuned) and smaller in magnitude than the reference study's architectural search.
-The loader configuration is where this workload's headroom actually is, but that
-headroom shows up in throughput, not directly in accuracy.
+depending on architecture (Table~\ref{tab:rq1-loader-util}).
+The loader configuration is where this workload's headroom actually is, and that
+headroom is a throughput result rather than an accuracy one.
 
 \paragraph{\pads{}.}
 Section~\ref{ch:methodology} presented a drop-in loader that profiles its own
@@ -120,43 +117,30 @@ Segmentation quality is treated throughout as a constraint to be preserved rathe
 than an objective to be advanced, and any IoU movement beyond the reference standard
 deviation is treated as a regression to be explained.
 
-Third, the accuracy figures used for the policy comparisons in
-Sections~\ref{ch:results} and~\ref{ch:ablation} are not this workload's ceiling.
-A memory-constrained workstation reproduction under an otherwise faithful
-configuration attained substantially lower IoU than the reference figure, traced
-to the batch-size reduction forced by accelerator memory and its effect on
-batch-normalisation statistics (Appendix~\ref{app:reproduction}). That diagnosis
-was subsequently confirmed directly, not only by analogy: a full-protocol
-replica run on the cluster at the reference's own batch size, epoch budget and
-final-epoch weighting reached $72.8$--$73.5\%$ IoU across all three
-architectures, within $1$--$1.4$ points of the published $74.17 \pm 0.38$
-(Section~\ref{sec:repro-closure}). The policy-comparison figures elsewhere in
-this thesis are lower still than either of these, for two further, identified
-reasons specific to the main pipeline (an IoU-averaging convention and a
-flip-augmentation defect, Appendix~\ref{app:defects}) rather than because the
-workload's accuracy ceiling is actually 0.35. The workstation environment
-remains adequate for instrumentation and defect analysis, which is the use made
-of it in Appendix~\ref{app:defects}, but accuracy claims throughout this thesis
-should be read against the closed-gap figure above, not the main pipeline's
+Third, the accuracy figures underlying the policy comparisons are a correctness
+check, not a measure of what these models can achieve. They are depressed by two
+identified defects specific to the main pipeline -- a metric-averaging
+convention and a flip-augmentation error (Appendix~\ref{app:defects}) -- which
+apply uniformly to every run and therefore leave the comparisons between
+policies valid while making the absolute values unrepresentative. The workload's
+actual accuracy ceiling is established separately, by a full-protocol
+reproduction reaching within $1$--$1.4$ points of the published reference figure
+(Appendix~\ref{app:reproduction}), and any accuracy claim in this thesis should
+be read against that reproduction rather than against the main pipeline's
 uncorrected numbers.
 
 \subsection{Closing remarks}
 
-The broader observation this work supports is methodological, though it is more
-precisely stated than an earlier draft of this chapter had it. Effort in deep
+The broader observation this work supports is methodological. Effort in deep
 learning for remote sensing is conventionally directed at the model, and the
-reference study for this workload found that architectural choice moved IoU by
-only a few percentage points - plausibly within the noise of random
-augmentation. Two loader flags, in the measurements collected this session, do
-not clearly move IoU more than that: the effect was mixed in direction and
-comparable in magnitude across architectures (+3.2, +2.6 and $-2.5$ percentage
-points). What two loader flags move decisively is GPU utilisation - by 24 to 51
-percentage points, an effect an order of magnitude larger than anything observed
-on accuracy in this thesis, in either direction. The corrected claim is not that
-loader configuration is a hidden lever on accuracy; it is that the accelerator's
-idle time, not the model, is where this pipeline's headroom actually sits, and
-that headroom is measurable in throughput terms regardless of what it does or
-does not do to IoU. The adaptive layer meant to capture that headroom
+reference study for this workload found that architectural choice moved
+segmentation quality by only a few percentage points - plausibly within the
+noise of random augmentation. What two loader flags move decisively is GPU
+utilisation, by 24 to 51 percentage points. The claim is not that loader
+configuration is a hidden lever on accuracy; it is that the accelerator's idle
+time, not the model, is where this pipeline's headroom actually sits, and that
+this headroom is a throughput result, to be claimed and measured as such. The
+adaptive layer meant to capture that headroom
 automatically remains the weaker part of this work
 (Section~\ref{sec:res-profiler-bias}), and closing that gap between a mechanism
 shown to work and a decision procedure shown not to invoke it reliably is the

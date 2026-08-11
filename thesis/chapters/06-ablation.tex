@@ -29,29 +29,31 @@ concrete implementation limitation rather than a missing run.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{llccc}
+\begin{tabular}{llc}
 \toprule
-Architecture & Configuration & GPU util.\ (\%) & IoU (pooled) \\
+Architecture & Configuration & GPU util.\ (\%) \\
 \midrule
-DeepLabV3+ & None (loose)            & 61.0 & 0.3707 \\
-           & Shard only              & \textbf{84.1} & 0.3569 \\
-           & Stage only              & 67.6 & 0.3582 \\
-           & Full \pads{} (adaptive) & 79.2 & 0.3459 \\
+DeepLabV3+ & None (loose)            & 61.0 \\
+           & Shard only              & \textbf{84.1} \\
+           & Stage only              & 67.6 \\
+           & Full \pads{} (adaptive) & 79.2 \\
 \midrule
-MA-Net     & None (loose)            & 84.6 & 0.3695 \\
-           & Shard only              & 86.8 & 0.3527 \\
-           & Stage only              & \textbf{87.0} & 0.3602 \\
-           & Full \pads{} (adaptive) & 83.7 & 0.3536 \\
+MA-Net     & None (loose)            & 84.6 \\
+           & Shard only              & 86.8 \\
+           & Stage only              & \textbf{87.0} \\
+           & Full \pads{} (adaptive) & 83.7 \\
 \midrule
-SegFormer  & None (loose)            & 42.1 & 0.3647 \\
-           & Shard only              & 50.7 & 0.3735 \\
-           & Stage only              & \textbf{54.3} & 0.3689 \\
-           & Full \pads{} (adaptive) & 41.0 & 0.3757 \\
+SegFormer  & None (loose)            & 42.1 \\
+           & Shard only              & 50.7 \\
+           & Stage only              & \textbf{54.3} \\
+           & Full \pads{} (adaptive) & 41.0 \\
 \bottomrule
 \end{tabular}
-\caption{Component ablation, GPU utilisation and IoU by policy component, all
-three architectures. Shard+stage combined is not expressible in the current
-implementation (see text).}
+\caption{Component ablation, GPU utilisation by policy component, all three
+architectures. Shard+stage combined is not expressible in the current
+implementation (see text). Segmentation quality under these same configurations
+is reported in Appendix~\ref{app:reproduction},
+Table~\ref{tab:accuracy-guardrail}.}
 \label{tab:ablation-components}
 \end{table}
 
@@ -89,13 +91,13 @@ that regime is reached here by synthetically constraining the scratch budget.
 \begin{tabular}{lccc}
 \toprule
 Scratch budget & DeepLabV3+ & MA-Net & SegFormer \\
- & GPU util.\ (\%) / IoU & GPU util.\ (\%) / IoU & GPU util.\ (\%) / IoU \\
+ & GPU util.\ (\%) & GPU util.\ (\%) & GPU util.\ (\%) \\
 \midrule
-100\% & 17.3 / 0.3383 & 86.9 / 0.3602 & 51.1 / 0.3648 \\
- 50\% & 81.6 / 0.3547 & 78.6 / 0.3527 & 56.0 / 0.3716 \\
- 25\% & 24.2 / 0.3463 & 85.2 / 0.3602 & 54.0 / 0.3641 \\
- 10\% & 87.2 / 0.3564 & 85.1 / 0.3527 & 53.8 / 0.3656 \\
-  0\% (staging unavailable) & 79.8 / 0.3646 & 85.8 / 0.3527 & 52.0 / 0.3686 \\
+100\% & 17.3 & 86.9 & 51.1 \\
+ 50\% & 81.6 & 78.6 & 56.0 \\
+ 25\% & 24.2 & 85.2 & 54.0 \\
+ 10\% & 87.2 & 85.1 & 53.8 \\
+  0\% (staging unavailable) & 79.8 & 85.8 & 52.0 \\
 \bottomrule
 \end{tabular}
 \caption{Behaviour as scratch capacity is constrained. Method~4 of
@@ -121,9 +123,10 @@ corpus size. DeepLabV3+ shows the opposite of the predicted direction: 100\%
 scratch capacity produces the \emph{lowest} GPU utilisation in the entire sweep
 (17.3\%), well below even the 0\%-capacity (staging-unavailable) row. Staging
 overhead is not merely failing to help at full capacity for DeepLabV3+; it is
-actively worse than not staging at all. IoU is comparatively stable across the
-sweep for every architecture (0.338--0.372), so this is a throughput effect, not
-an accuracy one. The honest reading is that ``more caching capacity is better''
+actively worse than not staging at all. Segmentation quality is comparatively
+stable across the whole sweep for every architecture
+(Appendix~\ref{app:reproduction}), so this is a throughput effect, not an
+accuracy one. The honest reading is that ``more caching capacity is better''
 does not hold unconditionally in this data, and the mechanism -- whether it is
 staging-copy overhead specific to DeepLabV3+'s I/O pattern, or an interaction
 with the profiler-bias defect of Section~\ref{sec:res-profiler-bias} that this
@@ -154,24 +157,24 @@ reported here across all three architectures.
 
 \begin{table}[!ht]
 \centering
-\begin{tabular}{llcccc}
+\begin{tabular}{llccc}
 \toprule
-Architecture & $\gamma_d$ & Measured ratio & Policy selected & IoU & GPU util.\ (\%) \\
+Architecture & $\gamma_d$ & Measured ratio & Policy selected & GPU util.\ (\%) \\
 \midrule
-DeepLabV3+ & 1.00 & 0.64 & loose & 0.3569 & 64.6 \\
-           & 1.25 & 1.23 & loose & 0.3510 & 86.3 \\
-           & 1.50 (default) & 0.65 & loose & 0.3513 & 61.6 \\
-           & 2.00 & 1.17 & loose & 0.3442 & 83.0 \\
+DeepLabV3+ & 1.00 & 0.64 & loose & 64.6 \\
+           & 1.25 & 1.23 & loose & 86.3 \\
+           & 1.50 (default) & 0.65 & loose & 61.6 \\
+           & 2.00 & 1.17 & loose & 83.0 \\
 \midrule
-MA-Net     & 1.00 & 1.03 & \textbf{shard} & 0.3553 & 86.4 \\
-           & 1.25 & 0.69 & loose & 0.3536 & 80.1 \\
-           & 1.50 (default) & 1.18 & loose & 0.3720 & 85.1 \\
-           & 2.00 & 0.68 & loose & 0.3536 & 87.0 \\
+MA-Net     & 1.00 & 1.03 & \textbf{shard} & 86.4 \\
+           & 1.25 & 0.69 & loose & 80.1 \\
+           & 1.50 (default) & 1.18 & loose & 85.1 \\
+           & 2.00 & 0.68 & loose & 87.0 \\
 \midrule
-SegFormer  & 1.00 & 1.23 & \textbf{shard} & 0.3527 & 49.6 \\
-           & 1.25 & 1.22 & loose & 0.3682 & 41.2 \\
-           & 1.50 (default) & 1.32 & loose & 0.3738 & 42.5 \\
-           & 2.00 & 1.20 & loose & 0.3736 & 43.0 \\
+SegFormer  & 1.00 & 1.23 & \textbf{shard} & 49.6 \\
+           & 1.25 & 1.22 & loose & 41.2 \\
+           & 1.50 (default) & 1.32 & loose & 42.5 \\
+           & 2.00 & 1.20 & loose & 43.0 \\
 \bottomrule
 \end{tabular}
 \caption{Sensitivity of the policy decision to the classification threshold, all

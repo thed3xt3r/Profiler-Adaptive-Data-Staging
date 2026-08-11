@@ -214,3 +214,68 @@ destroys the ratio, and such annotations frequently denote sites of imprecise
 location rather than precise small mounds.
 It also explains the $+3.9$ point gain the reference reports from filtering
 (Model~1 $\rightarrow$ Model~2).
+
+\subsection{Accuracy guardrail: segmentation quality across data-path policies}
+\label{sec:repro-guardrail}
+
+The chapters on throughput report GPU utilisation only, because throughput is
+what \pads{} sets out to change. That leaves a separate question which those
+chapters state but do not evidence: whether any of the data-path configurations
+degrades what the model actually learns. Sharding, staging and prefetching each
+alter the storage format, the ordering, or the materialisation time of training
+samples, and a defect in any of them could silently corrupt, duplicate or
+stale-serve data. A throughput gain obtained that way would be worthless, so
+segmentation quality is measured for every configuration and reported here.
+
+\begin{table}[!ht]
+\centering
+\begin{tabular}{llc}
+\toprule
+Architecture & Policy & IoU (pooled) \\
+\midrule
+DeepLabV3+ & none (loose)            & 0.3707 \\
+           & shard only              & 0.3569 \\
+           & stage only              & 0.3582 \\
+           & full \pads{} (adaptive) & 0.3459 \\
+\midrule
+MA-Net     & none (loose)            & 0.3695 \\
+           & shard only              & 0.3527 \\
+           & stage only              & 0.3602 \\
+           & full \pads{} (adaptive) & 0.3536 \\
+\midrule
+SegFormer  & none (loose)            & 0.3647 \\
+           & shard only              & 0.3735 \\
+           & stage only              & 0.3689 \\
+           & full \pads{} (adaptive) & 0.3757 \\
+\bottomrule
+\end{tabular}
+\caption{Segmentation quality by data-path policy, for the same runs whose
+throughput is reported in Section~\ref{ch:results},
+Table~\ref{tab:rq3-endtoend} and Section~\ref{ch:ablation},
+Table~\ref{tab:ablation-components}. IoU here is the main-pipeline pooled
+convention under \code{torchmetrics.BinaryJaccardIndex}, not the
+reference-comparable per-image mean of Section~\ref{sec:repro-metric}: these
+values are comparable to one another but not to
+Table~\ref{tab:casini-reference}.}
+\label{tab:accuracy-guardrail}
+\end{table}
+
+The result is a negative one, which is what was wanted. Within each
+architecture, quality varies by at most $\pm2.5$ percentage points across all
+four policies, and the variation has no consistent direction: SegFormer scores
+highest under full \pads{} and lowest under \code{loose}, while DeepLabV3+ does
+the reverse. There is no systematic accuracy cost to sharding or staging in this
+data, and equally no accuracy benefit -- the data path moves throughput, and
+leaves what the model learns alone.
+
+Two caveats bound how far this evidence reaches. First, every value in
+Table~\ref{tab:accuracy-guardrail} is a single run ($n=1$), so a $\pm2.5$ point
+spread cannot be separated from run-to-run variance that this evaluation never
+measured (Section~\ref{ch:futurework}). The claim supported is the absence of a
+large, systematic, one-directional degradation, not the absence of any effect.
+Second, these figures are depressed relative to the reference by the two defects
+of Appendix~\ref{app:defects} -- the metric-averaging convention and the
+flip-augmentation error -- which apply identically to every run in the table.
+That uniformity is what makes the comparison between policies valid while
+leaving the absolute values unrepresentative of the architectures' capability;
+Section~\ref{sec:repro-closure} establishes what that capability actually is.

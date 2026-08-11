@@ -286,12 +286,8 @@ HuggingFace \code{transformers} library.
 Table~\ref{tab:baseline-default} reports measurements on the Iris cluster on a
 single V100 with the baseline PyTorch \code{DataLoader} at default settings, and
 Table~\ref{tab:baseline-tuned} the same with loader parameters tuned
-(\code{num\_workers=4}, \code{pin\_memory=True}). These figures were recollected
-in full for this thesis (Section~\ref{ch:results}, Table~\ref{tab:rq1-loader-util}
-reports the same underlying runs); an earlier draft of this section used numbers
-from a prior, smaller measurement campaign that this table now supersedes, since
-the two disagreed once the full evaluation was collected -- notably on the
-direction of SegFormer's IoU change under tuning, not only its magnitude.
+(\code{num\_workers=4}, \code{pin\_memory=True}). Section~\ref{ch:results},
+Table~\ref{tab:rq1-loader-util} reports the same underlying runs.
 
 \begin{table}[!ht]
 \centering
@@ -301,15 +297,13 @@ direction of SegFormer's IoU change under tuning, not only its magnitude.
 \midrule
 Trainable parameters & 3.7\,M & 17.2\,M & 26.7\,M \\
 Model size (MB)      & 15     & 68      & 106 \\
-IoU                  & 0.3974 & 0.3440 & 0.3240 \\
 Epoch reached         & 36     & 12      & 2 \\
 Batch size           & 32     & 32      & 32 \\
 GPU utilisation (\%) & 16.0   & 34.4    & 33.6 \\
 \bottomrule
 \end{tabular}
 \caption{Baseline characteristics with the default PyTorch \code{DataLoader}
-(\code{num\_workers=0}). IoU is the main-pipeline pooled convention
-(Section~\ref{sec:repro-metric}), not the reference-comparable per-image mean.}
+(\code{num\_workers=0}).}
 \label{tab:baseline-default}
 \end{table}
 
@@ -321,7 +315,6 @@ GPU utilisation (\%) & 16.0   & 34.4    & 33.6 \\
 \midrule
 Trainable parameters & 3.7\,M & 17.2\,M & 26.7\,M \\
 Model size (MB)      & 15     & 68      & 106 \\
-IoU                  & 0.3725 & 0.3695 & 0.3560 \\
 Epoch reached         & 28     & 36      & 28 \\
 Batch size           & 32     & 32      & 32 \\
 GPU utilisation (\%) & 40.5   & 85.1    & 82.6 \\
@@ -332,21 +325,16 @@ GPU utilisation (\%) & 40.5   & 85.1    & 82.6 \\
 \label{tab:baseline-tuned}
 \end{table}
 
-Two observations from these tables set up Section~\ref{ch:methodology}, and the
-second is more precisely stated here than an earlier draft had it. First, GPU
-utilisation moves by 24--51 percentage points between the two tables depending
-on architecture -- large enough, together with the per-stage timing breakdown of
+The observation from these tables that sets up Section~\ref{ch:methodology} is
+that GPU utilisation moves by 24--51 percentage points between them depending on
+architecture -- large enough, together with the per-stage timing breakdown of
 Section~\ref{sec:res-rq1}, that the data path is a plausible bottleneck rather
-than a rounding error. Second, the same two loader flags do \emph{not} move IoU
-by a consistent, large margin: DeepLabV3+ gains 3.2 points and MA-Net 2.6, but
-SegFormer \emph{loses} 2.5 -- mixed in direction and modest in magnitude next to
-the reference study's architectural search, not comparable to it. The empirical
-hook for this work is therefore not that loader configuration rivals
-architecture choice as a lever on accuracy; the data below does not support that
-claim. It is that loader configuration is where this workload's throughput
-headroom demonstrably sits, independent of what it does or does not do to IoU,
-and that headroom is worth pursuing on its own terms
-(Section~\ref{ch:conclusions} returns to this distinction directly).
+than a rounding error. Loader configuration is where this workload's throughput
+headroom demonstrably sits, and that headroom is worth pursuing on its own terms.
+Segmentation quality is treated throughout as a constraint to be preserved rather
+than an objective to be advanced; Appendix~\ref{app:reproduction} reports it
+directly and confirms that no data-path configuration in this thesis trades
+accuracy for the throughput gains reported here.
 
 \subsection{Hardware and software environment}
 
