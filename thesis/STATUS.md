@@ -74,8 +74,11 @@ Ten new figures in `figures/`, all from real data: `ablation-components.png`,
 `rq3-endtoend.png`, `rq4-prefetch-depth.png`, `profiler-bias-sweep.png`,
 `reproduction-gap-closure.png`, and `prediction-examples.png` (real inference
 on four held-out test tiles, all three architectures, using the
-`0-reproduction` full-protocol checkpoints — input / ground-truth overlay /
-per-architecture prediction heatmap, in the style of Casini et al.'s Figure 2).
+`0-reproduction` full-protocol checkpoints). It is included in Appendix A
+(§"Qualitative output"). Predictions are drawn as thresholded contours rather
+than probability heatmaps, with the ground-truth boundary repeated on each
+prediction panel; the last row is a deliberately hard (visually complex)
+negative tile, on which all three architectures produce a spurious detection.
 Generated via `thesis/scripts/make_thesis_figures.py` and
 `thesis/scripts/make_prediction_figures.py` (also `inference_bench.py` in the
 same directory, used for the throughput numbers cited in Chapter 5) inside the

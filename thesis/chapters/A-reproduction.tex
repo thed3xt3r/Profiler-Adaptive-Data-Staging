@@ -183,6 +183,7 @@ Sweeping the decision threshold over $\{0.2, \dots, 0.7\}$ confirms $0.5$ is opt
 so the reported figure is not an artefact of a poorly chosen operating point.
 
 \subsection{Error structure}
+\label{sec:repro-error}
 
 The aggregate figure conceals a strongly bimodal error distribution.
 On the validation split, per-image IoU has a 90th percentile of $0.785$ - at
@@ -279,3 +280,58 @@ flip-augmentation error -- which apply identically to every run in the table.
 That uniformity is what makes the comparison between policies valid while
 leaving the absolute values unrepresentative of the architectures' capability;
 Section~\ref{sec:repro-closure} establishes what that capability actually is.
+
+\subsection{Qualitative output}
+\label{sec:repro-qualitative}
+
+The numbers above summarise agreement over the test set; they do not show what
+the models actually produce. Figure~\ref{fig:prediction-examples} gives the
+qualitative view for the full-protocol replica checkpoints, on held-out tiles
+unseen during training.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=\linewidth]{prediction-examples.png}
+\caption[Example predictions on held-out test tiles]{Example predictions from
+the full-protocol replica checkpoints, on test tiles unseen during training.
+Columns: input imagery; annotated ground truth (filled, solid boundary); and
+the thresholded prediction of each architecture (filled, solid boundary) with
+the ground-truth boundary repeated as a dashed line for direct comparison.
+Per-panel figures are the IoU of that single tile. The final row is a negative
+tile -- no annotated site -- chosen for visual complexity rather than at
+random, since a uniform field is trivially rejected; all three architectures
+produce a small spurious detection on it.}
+\label{fig:prediction-examples}
+\end{figure}
+
+Three things in this figure bear on how the quantitative results should be
+read, and two of them are unflattering.
+
+First, where a mound is tonally distinct from its surroundings the models
+localise it well and agree closely: on the first row all three recover the
+annotated contour at per-tile IoU of $0.77$--$0.80$, tracking the mound's
+outline rather than merely overlapping its bounding area. This is the
+behaviour the aggregate figure is built from, and it is genuinely good.
+
+Second, agreement between architectures is far weaker than the aggregate
+figures suggest. On the second row the same tile yields $0.01$, $0.64$ and
+$0.08$ across the three architectures -- one recovers the site, two effectively
+miss it. On the third row all three miss the annotated site entirely, and two
+of them instead fire on an unannotated area elsewhere in the tile. Aggregate
+IoU averages this disagreement away: the reference study's finding that
+architectural choice moves IoU by only a few points is compatible with
+per-tile behaviour that differs far more than that, and a mean over tiles
+should not be read as evidence that the architectures are doing the same thing.
+
+Third, the negative example shows the corresponding failure in the other
+direction. Chosen for visual complexity rather than at random, it elicits a
+small spurious detection from all three architectures. Together with the third
+row's misplaced predictions this indicates that the models key on tonal and
+textural contrast -- which is what a mounded site usually presents from above,
+but also what an ordinary field boundary, a quarry or a patch of bare ground
+presents. This is the mechanism behind the error structure
+Section~\ref{sec:repro-error} quantifies, and behind the strong dependence of
+per-image IoU on site area (Table~\ref{tab:by-area}): the smaller the site
+relative to its crop, the less tonal evidence separates it from the terrain it
+sits in, and the more readily that evidence is matched by something else in
+the tile.
