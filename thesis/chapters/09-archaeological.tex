@@ -1,0 +1,269 @@
+%% ============================================================================
+\section{Archaeological Contributions and Limitations}
+\label{ch:archaeology}
+%% ============================================================================
+
+This thesis is an engineering contribution: it concerns how training data
+reaches a machine learning model on a shared supercomputer, not how
+archaeological sites are identified. That framing is deliberate, but it leaves
+a question that a reader from archaeology is entitled to ask directly -- what,
+if anything, does this work contribute to archaeological practice, and how far
+can its results be trusted?
+
+This section answers that in plain terms. Technical vocabulary is defined where
+it is unavoidable, and the boundary between what has been demonstrated here,
+what has been demonstrated by others, and what remains untested is stated
+explicitly rather than left to inference.
+
+\subsection{Transfer to other regions}
+\label{sec:arch-regions}
+
+\paragraph{The short answer.}
+A model trained on tells in the southern Mesopotamian floodplain will not work
+well elsewhere without being shown local examples first. It is, however,
+comparatively cheap to adapt, and adaptation to a nearby region has already
+been demonstrated by others using the same underlying model.
+
+\paragraph{Why a trained model does not simply transfer.}
+The model does not learn the concept ``tell''. It learns a statistical
+association between patterns of colour, tone and texture in an image and the
+outlines an archaeologist drew around them. The qualitative analysis in
+Section~\ref{sec:repro-qualitative} makes this concrete: predictions follow
+tonal and textural contrast, and where a mound is not tonally distinct from the
+surrounding land the model misses it. Anything that changes that relationship
+between what a site looks like and what the surrounding landscape looks like
+degrades performance. Different soil chemistry, vegetation cover, land-use
+regime, season of image capture, preservation state, or satellite sensor all
+change it.
+
+\paragraph{Why adaptation is nonetheless cheap.}
+Adapting an existing model to a new region does not mean starting over. The
+standard practice, used throughout this thesis, is \emph{transfer learning}: a
+model already trained on a very large general image collection is used as a
+starting point and then trained further on the specific task, which requires
+far fewer examples than training from nothing. The same principle applies one
+step further along -- a model trained on Mesopotamian tells is a better
+starting point for a new region than a generic one.
+
+The evidence that this works in practice is not from this thesis but from the
+research programme the dataset originates from. Pistola et al.~\cite{Pistola25}
+retrained the same underlying model on declassified CORONA satellite imagery
+from the 1960s for the Abu Ghraib district west of Baghdad -- a different
+sensor, a different decade, and a landscape substantially altered by modern
+development -- and report a segmentation score above 85\%, together with four
+previously unrecorded sites subsequently confirmed by field verification. Two
+other groups have applied convolutional networks to CORONA imagery in adjacent
+regions: Soroush et al.~\cite{Soroush20} in the Kurdistan Region of Iraq, and
+Vadineanu et al.~\cite{Vadineanu24} on mounded settlements in Upper
+Mesopotamia.
+
+\paragraph{What actually limits adaptation.}
+The binding constraint is not computing power and not model design. It is
+annotated examples: someone must have already outlined a reasonable number of
+known sites in the new region for the model to learn from. In a region with a
+well-catalogued survey record this is a matter of data preparation; in a region
+without one, the model cannot be adapted at all until that survey work exists,
+which is precisely the expensive, slow work the model is meant to assist. This
+is a genuine limitation of the whole approach, not of this implementation.
+
+It is worth being clear that no cross-region transfer experiment was run in
+this thesis. The claim above rests on the published results cited, not on
+evidence collected here.
+
+\subsection{Transfer to other kinds of structure}
+\label{sec:arch-structures}
+
+\paragraph{The short answer.}
+Yes, and this is better established than regional transfer. Nothing in the
+method is specific to mounded settlements.
+
+The models used here are general-purpose image segmentation networks. They were
+not designed for archaeology; they were designed to outline objects in
+photographs, and they were adapted to this task purely by being shown examples
+of tells. Show them examples of something else and they will learn that
+instead. The published record bears this out across markedly different feature
+types and sensors: qanat shafts, the surface openings of underground water
+channels, in Kurdistan~\cite{Soroush20}; ``princely'' burial mounds in the
+Eurasian steppe~\cite{Caspari19}; stone burial mounds (kurgans) in the Altai
+Mountains~\cite{Chen21}; and archaeological topography in airborne laser
+scanning data, which is not satellite photography at all~\cite{Trier19,Guyot21}.
+
+\paragraph{What makes a feature easy or hard.}
+Two properties matter more than the choice of model. First, the feature must be
+visible in the sensor being used -- a buried structure with no surface
+expression will not be found in satellite imagery regardless of the method.
+Second, and this thesis provides direct evidence for it, the feature must be
+large enough relative to the image tile. Section~\ref{sec:repro-qualitative}
+reports that when the annotated site occupies less than roughly 12\% of the
+analysed area, the median overlap score across all three architectures is zero:
+the models simply fail on small targets. Tells are a comparatively favourable
+subject, being large, raised and often tonally distinct. Features that are
+small, subtle, or visible only under particular seasonal or lighting conditions
+should be expected to perform considerably worse, and the size effect above
+should be treated as a warning rather than a footnote.
+
+\subsection{How reliable are these findings?}
+\label{sec:arch-reliability}
+
+This subsection concerns the accuracy figures. It is the part of this section
+most likely to matter to a reviewer, and it contains a caveat that is easy to
+miss when reading the headline number.
+
+\paragraph{What the headline number means, and what it does not.}
+This thesis reproduces the reference study's reported accuracy, reaching
+$72.8$--$73.5\%$ against a published $74.17\%$
+(Section~\ref{sec:repro-closure}). That figure is an
+\emph{intersection-over-union} score: the area where the predicted outline and
+the archaeologist's outline agree, divided by the area covered by either of
+them. A score of 1.0 is a perfect match and 0.0 is no overlap at all.
+
+It would be natural to read ``73\%'' as meaning that, on a typical site, about
+three-quarters of the outline is drawn correctly. That is not what it means,
+and the difference is substantial. The score is averaged over all test images,
+including images containing no site at all, and an image correctly identified
+as containing nothing scores a perfect 1.0. Of the 589 test images, 123 contain
+no site. Those images contribute perfect scores to the average without any
+outline having been drawn (Section~\ref{sec:repro-metric} quantifies the effect
+of this convention).
+
+\paragraph{The per-site picture.}
+Scoring only the 466 test images that do contain a site gives a much more
+uneven result. The median score per image is $0.165$, $0.053$ and $0.000$ for
+the three architectures -- that is, on more than half of individual sites, at
+least two of the three models produce almost no useful outline. At the same
+time, roughly a third of sites score above $0.5$ and the best-performing tenth
+score around $0.78$--$0.81$.
+
+The distribution is therefore not centred on a middling value; it is
+\emph{bimodal}. The model tends either to find a site and outline it well, or
+to miss it almost entirely, with relatively few cases in between. For practical
+purposes this is more useful than the average suggests -- a confident, accurate
+outline on a third of sites is a real result -- but it is a materially
+different claim from ``73\% accurate'', and it should not be reported as the
+latter.
+
+\paragraph{Reliability of the engineering findings.}
+The performance results in Sections~\ref{ch:results} and~\ref{ch:ablation} come
+with a limitation stated plainly there: each configuration was run once, not
+repeated. On a shared supercomputer, timing measurements vary with whatever
+else is running, so single measurements cannot be separated from that
+variation. Those results should be read as a broad, consistent survey rather
+than as precisely established differences. The accuracy figures are on firmer
+ground, having been measured over ten independent evaluation passes with very
+close agreement between them.
+
+\subsection{How the findings were verified}
+\label{sec:arch-verification}
+
+Three checks were applied, and it is important to be clear about what each one
+does and does not establish.
+
+\paragraph{Held-out data.}
+The models were evaluated on 589 images set aside before training and never
+used to adjust the model. This guards against the most basic failure, in which
+a model appears accurate merely because it has memorised the examples it was
+trained on.
+
+\paragraph{Repeated evaluation.}
+Because the evaluation procedure involves a random crop of each image, the
+whole test set was evaluated ten times independently. Agreement between those
+ten runs was close (a spread of $0.003$--$0.004$), so the reported figure is not
+an artefact of one lucky pass.
+
+\paragraph{Independent reproduction.}
+The pipeline was rebuilt from scratch and checked against an independently
+published result~\cite{Casini23}, landing within $1$--$1.4$ percentage points.
+This is the strongest of the three checks, because it tests the whole apparatus
+against a number produced by different people using different code.
+
+\paragraph{What none of this establishes.}
+Every check above compares the model's output against the \emph{annotations} --
+the outlines drawn by archaeologists in the source catalogue. It does not
+compare them against the ground. A model that agrees perfectly with the
+catalogue would score perfectly here even if the catalogue itself were
+mistaken, and the catalogue is known to be imperfect in a specific and
+consequential way: a substantial number of recorded sites have been levelled
+for agriculture or built over and are no longer visible in modern imagery. A
+model that correctly reports nothing visible on such a tile is penalised as a
+failure.
+
+No site proposed by any model in this thesis has been checked in the field. The
+only field verification in this research programme is that reported by Pistola
+et al.~\cite{Pistola25}, who confirmed four previously unrecorded sites found
+using the CORONA-trained variant of the same model. Field verification is the
+only test that can distinguish a genuine discovery from an agreement with an
+imperfect catalogue, and it lies outside the scope of this work.
+
+\subsection{Can archaeological features be mistaken for other features?}
+\label{sec:arch-confusion}
+
+Yes, in both directions, and this thesis can quantify how often.
+
+\paragraph{Mistaking something else for a site.}
+Of the 123 test images containing no archaeological site, 108 were correctly
+rejected by all three models. Spurious detections appeared on $5.7\%$
+(DeepLabV3+), $7.3\%$ (MA-Net) and $8.9\%$ (SegFormer) of them. Since the
+models respond to tonal and textural contrast, the features that trigger them
+are those that resemble a mound from above without being one: field boundaries
+and irrigated parcels, quarries and borrow pits, spoil heaps, patches of bare
+or salt-crusted ground, and modern earthworks. These images were themselves
+deliberately sampled by the original authors from urbanised areas, intensive
+agriculture, flood-prone terrain and rocky hills -- that is, they are hard
+cases by construction, and a roughly 6--9\% false-detection rate on them is a
+meaningful but not disqualifying figure.
+
+\paragraph{Missing a site that is present.}
+This is the larger error, and it deserves the greater emphasis. Roughly half of
+the images that do contain a site yield almost no useful outline
+(Section~\ref{sec:arch-reliability}), concentrated overwhelmingly among smaller
+sites. A negative result from these models is therefore weak evidence: absence
+of a detection is emphatically not evidence of absence of a site.
+
+\paragraph{The ambiguity is not only the model's.}
+Some of what is scored as error is disagreement about the annotation rather
+than a mistake in the image analysis. Where a catalogued site is no longer
+visible, the model and the catalogue disagree and the model is recorded as
+wrong. Fiorucci et al.~\cite{Fiorucci22} argue more generally that standard
+detection measures are poorly matched to archaeological objects and propose
+alternatives; the concern applies directly here.
+
+\paragraph{Why this argues for expert review rather than against the method.}
+The reference study addressed exactly this by placing an archaeologist in the
+loop to adjudicate the model's proposals, which raised site-level detection
+accuracy from roughly 63\% to 80\%~\cite{Casini23}. That is the appropriate
+framing for the whole approach, and it is the framing this thesis
+inherits: the model is a triage tool that narrows where a specialist looks,
+not an authority on what is there. Verschoof-van der Vaart and
+Lambers~\cite{Verschoof22} make the same argument from the perspective of
+integrating such tools into archaeological practice.
+
+\subsection{What this thesis contributes archaeologically}
+\label{sec:arch-contribution}
+
+Stated conservatively, the contribution is threefold, and only the third is
+novel to this work.
+
+First, it independently reproduces a published archaeological detection result.
+Reproduction is undervalued: it establishes that the published figure is
+attainable by someone other than its authors, and Appendix~\ref{app:defects}
+documents the specific defects and environmental sensitivities that had to be
+resolved to obtain it, which is information of practical use to anyone
+attempting the same.
+
+Second, it characterises the error structure of that result more precisely than
+the headline figure allows -- the bimodal distribution, the strong dependence
+on site size, and the false-detection rate on hard negatives. This matters for
+anyone deciding how much weight to place on such a model's output.
+
+Third, and this is the actual contribution, it reduces the cost of retraining.
+The barrier to applying these methods to a new region or a new class of feature
+is rarely the model; it is the effort of assembling annotations and the time
+and computing resources needed to train on them. This thesis shows that on a
+shared supercomputer a substantial fraction of that time is spent not
+computing but waiting for image files to be read from storage, and that
+addressing this raises accelerator utilisation substantially
+(Section~\ref{ch:results}). Cheaper retraining does not make the archaeology
+more accurate. It makes it more practical to retrain for a new region, a new
+sensor, or a new feature type -- which, per
+Sections~\ref{sec:arch-regions} and~\ref{sec:arch-structures}, is exactly what
+applying this approach anywhere new requires.
