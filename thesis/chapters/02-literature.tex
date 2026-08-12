@@ -2,25 +2,14 @@
 \section{Literature Review}
 \label{ch:literature}
 %% ============================================================================
+This chapter reviews three bodies of literature that provide the foundation for this thesis: semantic segmentation architectures (Section~\ref{sec:lit-seg}), deep learning for archaeological prospection (Section~\ref{sec:lit-arch}), and input-pipeline performance in large-scale deep learning (Section~\ref{sec:lit-io}). The first two establish the application and computational workload considered in this thesis, while the third examines the input-pipeline performance problem and establishes the research gap addressed by \pads{}.
 
-This chapter reviews three bodies of work that the thesis sits between:
-semantic segmentation architectures (Section~\ref{sec:lit-seg}),
-deep learning applied to archaeological prospection (Section~\ref{sec:lit-arch}),
-and input-pipeline performance for large-scale training (Section~\ref{sec:lit-io}).
-The first two establish the workload; the third establishes the gap that
-\pads{} addresses.
 
 \subsection{Semantic segmentation architectures}
 \label{sec:lit-seg}
 
-Semantic segmentation assigns a class label to every pixel of an image.
-The modern formulation begins with fully convolutional encoder--decoder networks,
-of which U-Net~\cite{Ronneberger15} is the canonical instance: a contracting path
-captures context, an expanding path recovers spatial resolution, and skip
-connections carry high-frequency detail across the bottleneck.
-U-Net was introduced for biomedical imaging under severe data scarcity, which is
-one reason it transferred well to remote sensing, where annotated corpora are
-similarly small.
+Semantic segmentation assigns a class label to every pixel in an image, allowing both the category and spatial extent of objects to be identified. A major development in modern semantic segmentation was the introduction of fully convolutional encoder--decoder architectures, with U-Net~\cite{Ronneberger15} becoming one of the most widely adopted examples. Its contracting path progressively extracts contextual features, while the expanding path restores spatial resolution to produce pixel-level predictions. Skip connections between corresponding encoder and decoder stages preserve fine-grained spatial information that may otherwise be lost during downsampling. Originally developed for biomedical image segmentation with limited annotated training data, U-Net also became well suited to remote-sensing applications, where obtaining large quantities of accurately labelled imagery can be similarly difficult and expensive.
+
 
 Two families extend this design in directions relevant here.
 The first enlarges the effective receptive field without sacrificing resolution.
@@ -40,7 +29,7 @@ SegFormer~\cite{Xie21} pairs a hierarchical, positional-encoding-free transforme
 encoder with a lightweight all-MLP decoder, achieving competitive accuracy at
 markedly lower per-step compute than heavy CNN decoders.
 For the purposes of this thesis that low compute cost is not incidental: it makes
-SegFormer the configuration in which data-loading stalls are most exposed, since a
+SegFormer the model in which data-loading stalls are most prevelant, since a
 model that computes quickly spends proportionally more of its time waiting.
 
 Encoder choice is largely orthogonal to decoder architecture.
@@ -57,7 +46,7 @@ decoder to be selected independently and supplies the loss functions used here.
 Archaeology is what Bickler terms a ``slow data'' field: annotated examples accrue
 through fieldwork, not through scraping, and corpora are correspondingly small.
 The standard response is transfer learning - initialising from a model pretrained
-on a large general corpus such as ImageNet~\cite{Deng09} and fine-tuning on the
+on a large general dataset such as ImageNet~\cite{Deng09} and fine-tuning on the
 specific task.
 
 Applications divide by output granularity.
@@ -107,11 +96,10 @@ reports the per-file storage cost of the imagery, which is this thesis's specifi
 concern with it.
 
 Two themes from this literature bear directly on the present work.
-First, evaluation is unusually fraught.
-Fiorucci et al.~\cite{Fiorucci22} argue that standard detection measures are poorly
+First, Fiorucci et al.~\cite{Fiorucci22} argue that standard detection measures are poorly
 matched to archaeological objects on LiDAR and propose alternatives; Casini et
 al.~\cite{Casini23} make the related observation that IoU and site-level detection
-accuracy can move in opposite directions, because a more conservative model
+accuracy inversely related, because a more conservative model
 produces fewer positive predictions, shrinking the union term and raising IoU while
 missing sites and lowering recall.
 Any model comparison that relies on IoU alone must be read with that caveat.
@@ -123,15 +111,14 @@ correctly produces no contour for such a tile is penalised as a false negative
 against the annotation.
 Casini et al.~\cite{Casini23} address this with human-in-the-loop adjudication,
 which raises reported detection accuracy from roughly 63\% to 80\%.
-This is a property of the corpus, not of any particular model, and it bounds what
+This is a property of the dataset, not of any particular model, and it bounds what
 any reproduction can be expected to achieve.
 
 \subsection{Input pipelines and I/O for large-scale training}
 \label{sec:lit-io}
 
 The literature above is concerned with what the model computes.
-A separate and smaller literature is concerned with whether the GPU is
-given anything to compute.
+This section looks into the literature discussing gpu utilisation and optimisation techniques. 
 General surveys of GPU-oriented deep-learning optimisation~\cite{Mittal19} cover
 compute- and memory-level techniques - kernel fusion, mixed precision,
 distributed parallelism - but treat the input pipeline as out of scope; the
@@ -139,8 +126,8 @@ work reviewed below fills that gap specifically.
 
 Mohan et al.~\cite{Mohan21} characterise \emph{data stalls} in DNN training and show
 that they are common rather than exceptional: across a range of workloads,
-accelerators spend a substantial fraction of wall-clock time blocked on fetching and
-preprocessing, and the effect worsens as accelerators get faster relative to storage
+GPUs spend a substantial fraction of wall-clock time blocked on fetching and
+preprocessing, and the effect worsens as GPUs get faster relative to storage
 and host CPUs.
 Their system, CoorDL, addresses this through coordinated caching and by eliminating
 redundant preprocessing across concurrent jobs.
@@ -154,10 +141,10 @@ time - independent confirmation, on different storage and a different framework
 layer, that the many-small-file problem this thesis targets on GPFS is not an
 artefact of one filesystem.
 
-The many-small-file problem is a specific and well-known pathology on parallel
+The many-small-file problem is a specific and well-known bottleneck on parallel
 filesystems.
 Metadata cost per file is close to constant regardless of how few bytes are read,
-so per-file overhead does not amortise, and a corpus of thousands of small images
+so per-file overhead does not scale well, and a dataset of thousands of small images
 generates metadata traffic out of proportion to the data actually transferred.
 The standard mitigation is to aggregate samples into large sequentially read
 archives.
@@ -168,13 +155,13 @@ approximated by shuffling shard order and maintaining an in-memory sample buffer
 NVIDIA DALI~\cite{DALI} attacks an adjacent part of the problem by moving decode and
 augmentation onto the GPU.
 The term \emph{IO-aware}, used throughout this thesis for \pads{}'s central
-mechanism, echoes an argument made one level lower in the compute stack: Dao et
+mechanism, echoes an argument made one level lower in the compute stack, Dao et
 al.~\cite{Dao22} show that attention kernels which account explicitly for the cost
 of moving data between GPU high-bandwidth memory and on-chip SRAM outperform
 kernels that minimise floating-point operations alone.
 The claim in this thesis is the same principle applied one layer higher in the
 storage hierarchy - between a shared parallel filesystem and node-local scratch,
-rather than between HBM and SRAM.
+rather than between High Bandwidth Memory and SRAM.
 
 Two gaps in this body of work motivate \pads{}.
 
@@ -193,15 +180,4 @@ Here they need not be: once the permutation is drawn, the identity of the next $
 samples is determined, and a staging schedule can be computed rather than guessed.
 \pads{} is built on that observation.
 
-\subsection{Summary}
 
-Segmentation architecture for this workload is a solved problem in the sense that
-matters here: the reference study found that architectural choice moves IoU by only
-a few percentage points, plausibly within the fluctuation induced by random
-augmentation~\cite{Casini23}.
-If the remaining headroom is not in the model, it may be in the pipeline that feeds
-it.
-The I/O literature establishes that data stalls are real and that aggregation into
-shards mitigates the dominant filesystem pathology, but leaves the configuration
-static and the prefetch speculative.
-This thesis addresses that gap.

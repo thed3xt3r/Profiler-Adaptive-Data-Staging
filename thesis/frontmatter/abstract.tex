@@ -21,7 +21,7 @@ We introduce \pads{} (Profiler-Adaptive Data Staging), a drop-in replacement for
 PyTorch \code{DataLoader} that profiles its own behaviour over a short warm-up window,
 classifies the dominant bottleneck from the measured timings, selects a staging policy
 - loose files, tar shards, or node-local scratch staging - and executes that policy
-with a prefetch depth derived from the measurements rather than supplied by the user.
+with a prefetch depth derived from the measurements.
 %
 Because the sample permutation is fixed at the start of each epoch, the identity of
 future file accesses is known exactly, so prefetching is exact rather than speculative.
@@ -33,13 +33,8 @@ transformer.
 The staging mechanism itself delivers on that promise when actually invoked: tar
 shards alone beat an unmodified loader on GPU utilisation for every architecture
 tested, and a full pre-staging ceiling reaches the highest GPU utilisation of any
-configuration tested for two of three architectures. \pads{}'s adaptive policy
-selection, however, invoked staging in only a small minority of the configurations
-where it was measurably available to do so, traced to a specific, quantified defect
-in the profiler's own warm-up measurement -- one-time GPU initialisation cost
-dominating a short averaging window and systematically understating the true
-data-to-compute time ratio by roughly an order of magnitude -- rather than to a
-failure of the staging mechanism itself. A validated correction, discarding warm-up
+configuration tested for two of three architectures. \pads{}'s adaptive policy selection, however, activated staging in only a small minority of the configurations where the fixed-policy experiments showed that staging could provide a measurable benefit. This behaviour was traced to a specific and quantified defect in the profiler's warm-up measurement. One-time GPU initialisation costs dominated the short averaging window, inflating the measured GPU compute time and systematically understating the true data-to-compute time ratio by approximately an order of magnitude. The resulting conservative policy selection therefore reflects a limitation of the profiling procedure rather than a failure of the staging mechanism itself.
+. A validated correction, discarding warm-up
 batches before measuring, recovers full-epoch measurement accuracy at negligible
 added cost.
 %

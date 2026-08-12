@@ -4,6 +4,6 @@
 \contentsline {figure}{\numberline {2}{\ignorespaces GPU utilisation, RQ3 methods 3--5, all three architectures.\relax }}{18}{figure.caption.34}%
 \contentsline {figure}{\numberline {3}{\ignorespaces GPU utilisation across the prefetch-depth sweep}}{19}{figure.caption.36}%
 \contentsline {figure}{\numberline {4}{\ignorespaces Measured ratio against the full-epoch ground truth}}{22}{figure.caption.41}%
-\contentsline {figure}{\numberline {5}{\ignorespaces GPU utilisation by policy component, all three architectures.\relax }}{25}{figure.caption.43}%
-\contentsline {figure}{\numberline {6}{\ignorespaces GPU utilisation vs.\ scratch-capacity budget}}{26}{figure.caption.45}%
-\contentsline {figure}{\numberline {7}{\ignorespaces Measured ratio vs.\ decision threshold}}{27}{figure.caption.47}%
+\contentsline {figure}{\numberline {5}{\ignorespaces GPU utilisation by policy component, all three architectures.\relax }}{24}{figure.caption.43}%
+\contentsline {figure}{\numberline {6}{\ignorespaces GPU utilisation vs.\ scratch-capacity budget}}{25}{figure.caption.45}%
+\contentsline {figure}{\numberline {7}{\ignorespaces Measured ratio vs.\ decision threshold}}{26}{figure.caption.47}%

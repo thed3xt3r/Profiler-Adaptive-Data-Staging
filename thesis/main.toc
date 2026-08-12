@@ -19,7 +19,6 @@
 \contentsline {subsection}{\numberline {2.1}Semantic segmentation architectures}{3}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}Deep learning for archaeological prospection}{4}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Input pipelines and I/O for large-scale training}{5}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}Summary}{6}{subsection.2.4}%
 \contentsline {section}{\numberline {3}Materials and Datasets}{6}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Overview}{6}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}Dataset: Casini et al. (2023)}{6}{subsection.3.2}%
@@ -43,9 +42,9 @@
 \contentsline {paragraph}{Instrumentation.}{11}{section*.19}%
 \contentsline {paragraph}{Aggregation.}{12}{section*.20}%
 \contentsline {subsubsection}{\numberline {4.2.2}Stage 2 - Bottleneck classification}{12}{subsubsection.4.2.2}%
-\contentsline {paragraph}{Thresholds.}{12}{section*.22}%
+\contentsline {paragraph}{Threshold-based policy selection.}{12}{section*.22}%
 \contentsline {paragraph}{A note on what the classifier optimises.}{12}{section*.23}%
-\contentsline {subsubsection}{\numberline {4.2.3}Stage 3 - Policy selection}{12}{subsubsection.4.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.3}Stage 3 - Policy selection}{13}{subsubsection.4.2.3}%
 \contentsline {paragraph}{Archive construction.}{13}{section*.25}%
 \contentsline {subsubsection}{\numberline {4.2.4}Stage 4 - Predictive staging}{13}{subsubsection.4.2.4}%
 \contentsline {paragraph}{Eviction.}{14}{section*.26}%
@@ -54,64 +53,64 @@
 \contentsline {paragraph}{Model metrics (the constraint, not the objective).}{14}{section*.28}%
 \contentsline {subsection}{\numberline {4.4}Evaluation plan}{15}{subsection.4.4}%
 \contentsline {subsection}{\numberline {4.5}Experimental protocol}{15}{subsection.4.5}%
-\contentsline {section}{\numberline {5}Results}{16}{section.5}%
+\contentsline {section}{\numberline {5}Results}{15}{section.5}%
 \contentsline {subsection}{\numberline {5.1}RQ1: When does the DataLoader become the bottleneck?}{16}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}RQ2: Do tar shards reduce many-small-file overhead?}{17}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}RQ3: Does predictive staging outperform fixed streaming?}{18}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}RQ4: Can prefetch depth be auto-tuned?}{19}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.3}RQ3: Does predictive staging outperform fixed streaming?}{17}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}RQ4: Can prefetch depth be auto-tuned?}{18}{subsection.5.4}%
 \contentsline {subsection}{\numberline {5.5}Profiling overhead}{20}{subsection.5.5}%
-\contentsline {subsection}{\numberline {5.6}Why the adaptive layer stayed conservative: a profiler measurement defect}{21}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.6}Why the adaptive layer stayed conservative: a profiler measurement defect}{20}{subsection.5.6}%
 \contentsline {subsection}{\numberline {5.7}Accuracy is preserved}{23}{subsection.5.7}%
-\contentsline {section}{\numberline {6}Ablation Study}{24}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Component ablation}{24}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Scratch capacity: the regime the design targets}{25}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Classifier threshold sensitivity}{26}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}Shuffling randomness}{27}{subsection.6.4}%
+\contentsline {section}{\numberline {6}Ablation Study}{23}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Component ablation}{23}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Scratch capacity}{24}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Classifier threshold sensitivity}{25}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Shuffling randomness}{26}{subsection.6.4}%
 \contentsline {section}{\numberline {7}Conclusions}{27}{section.7}%
 \contentsline {subsection}{\numberline {7.1}Summary of contributions}{27}{subsection.7.1}%
 \contentsline {paragraph}{The workload is I/O-bound, and this is measurable.}{27}{section*.48}%
-\contentsline {paragraph}{PADS-Loader{}.}{28}{section*.49}%
-\contentsline {paragraph}{An evaluation that isolates mechanisms.}{28}{section*.50}%
-\contentsline {paragraph}{A reproduction, and the defects it surfaced.}{28}{section*.51}%
-\contentsline {subsection}{\numberline {7.2}Answers to the research questions}{28}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}What this work does not claim}{29}{subsection.7.3}%
-\contentsline {section}{\numberline {8}Limitations and Future Work}{29}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Limitations}{29}{subsection.8.1}%
-\contentsline {paragraph}{A single filesystem and a single cluster.}{29}{section*.52}%
+\contentsline {paragraph}{PADS-Loader{}.}{27}{section*.49}%
+\contentsline {paragraph}{An evaluation that isolates mechanisms.}{27}{section*.50}%
+\contentsline {paragraph}{A reproduction, and the defects it surfaced.}{27}{section*.51}%
+\contentsline {subsection}{\numberline {7.2}Answers to the research questions}{27}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}What this work does not claim}{28}{subsection.7.3}%
+\contentsline {section}{\numberline {8}Limitations and Future Work}{28}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Limitations}{28}{subsection.8.1}%
+\contentsline {paragraph}{A single filesystem and a single cluster.}{28}{section*.52}%
 \contentsline {paragraph}{Contention is uncontrolled, and this evaluation does not estimate its own variance.}{29}{section*.53}%
 \contentsline {paragraph}{One corpus.}{29}{section*.54}%
-\contentsline {paragraph}{Single-node scope.}{30}{section*.55}%
-\contentsline {paragraph}{The classifier is a rule set.}{30}{section*.56}%
-\contentsline {subsection}{\numberline {8.2}Future work}{30}{subsection.8.2}%
-\contentsline {paragraph}{Decode offload.}{30}{section*.57}%
-\contentsline {paragraph}{Cross-job coordination.}{30}{section*.58}%
-\contentsline {paragraph}{Online rather than one-shot adaptation.}{30}{section*.59}%
+\contentsline {paragraph}{Single-node scope.}{29}{section*.55}%
+\contentsline {paragraph}{The classifier is a rule set.}{29}{section*.56}%
+\contentsline {subsection}{\numberline {8.2}Future work}{29}{subsection.8.2}%
+\contentsline {paragraph}{Decode offload.}{29}{section*.57}%
+\contentsline {paragraph}{Cross-job coordination.}{29}{section*.58}%
+\contentsline {paragraph}{Online rather than one-shot adaptation.}{29}{section*.59}%
 \contentsline {paragraph}{Revisiting the accuracy question.}{30}{section*.60}%
-\contentsline {paragraph}{Beyond archaeology.}{31}{section*.61}%
-\contentsline {section}{\numberline {9}Archaeological Contributions and Limitations}{31}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Transfer to other regions}{31}{subsection.9.1}%
-\contentsline {paragraph}{The short answer.}{31}{section*.62}%
-\contentsline {paragraph}{Why a trained model does not simply transfer.}{31}{section*.63}%
+\contentsline {paragraph}{Beyond archaeology.}{30}{section*.61}%
+\contentsline {section}{\numberline {9}Archaeological Contributions and Limitations}{30}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Transfer to other regions}{30}{subsection.9.1}%
+\contentsline {paragraph}{The short answer.}{30}{section*.62}%
+\contentsline {paragraph}{Why a trained model does not simply transfer.}{30}{section*.63}%
 \contentsline {paragraph}{Why adaptation is nonetheless cheap.}{31}{section*.64}%
 \contentsline {paragraph}{What actually limits adaptation.}{31}{section*.65}%
-\contentsline {subsection}{\numberline {9.2}Transfer to other kinds of structure}{32}{subsection.9.2}%
-\contentsline {paragraph}{The short answer.}{32}{section*.66}%
-\contentsline {paragraph}{What makes a feature easy or hard.}{32}{section*.67}%
+\contentsline {subsection}{\numberline {9.2}Transfer to other kinds of structure}{31}{subsection.9.2}%
+\contentsline {paragraph}{The short answer.}{31}{section*.66}%
+\contentsline {paragraph}{What makes a feature easy or hard.}{31}{section*.67}%
 \contentsline {subsection}{\numberline {9.3}How reliable are these findings?}{32}{subsection.9.3}%
 \contentsline {paragraph}{What the headline number means, and what it does not.}{32}{section*.68}%
 \contentsline {paragraph}{The per-site picture.}{32}{section*.69}%
-\contentsline {paragraph}{Reliability of the engineering findings.}{33}{section*.70}%
-\contentsline {subsection}{\numberline {9.4}How the findings were verified}{33}{subsection.9.4}%
-\contentsline {paragraph}{Held-out data.}{33}{section*.71}%
-\contentsline {paragraph}{Repeated evaluation.}{33}{section*.72}%
-\contentsline {paragraph}{Independent reproduction.}{33}{section*.73}%
+\contentsline {paragraph}{Reliability of the engineering findings.}{32}{section*.70}%
+\contentsline {subsection}{\numberline {9.4}How the findings were verified}{32}{subsection.9.4}%
+\contentsline {paragraph}{Held-out data.}{32}{section*.71}%
+\contentsline {paragraph}{Repeated evaluation.}{32}{section*.72}%
+\contentsline {paragraph}{Independent reproduction.}{32}{section*.73}%
 \contentsline {paragraph}{What none of this establishes.}{33}{section*.74}%
 \contentsline {subsection}{\numberline {9.5}Can archaeological features be mistaken for other features?}{33}{subsection.9.5}%
 \contentsline {paragraph}{Mistaking something else for a site.}{33}{section*.75}%
-\contentsline {paragraph}{Missing a site that is present.}{34}{section*.76}%
-\contentsline {paragraph}{The ambiguity is not only the model's.}{34}{section*.77}%
-\contentsline {paragraph}{Why this argues for expert review rather than against the method.}{34}{section*.78}%
-\contentsline {subsection}{\numberline {9.6}What this thesis contributes archaeologically}{34}{subsection.9.6}%
+\contentsline {paragraph}{Missing a site that is present.}{33}{section*.76}%
+\contentsline {paragraph}{The ambiguity is not only the model's.}{33}{section*.77}%
+\contentsline {paragraph}{Why this argues for expert review rather than against the method.}{33}{section*.78}%
+\contentsline {subsection}{\numberline {9.6}What this thesis contributes archaeologically}{33}{subsection.9.6}%
 \contentsline {section}{\numberline {A}Reproduction of the Reference Configuration}{38}{appendix.A}%
 \contentsline {subsection}{\numberline {A.1}Environment}{38}{subsection.A.1}%
 \contentsline {subsection}{\numberline {A.2}Faithfulness of the port}{38}{subsection.A.2}%

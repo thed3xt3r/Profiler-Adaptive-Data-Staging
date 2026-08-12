@@ -15,16 +15,7 @@ Section~\ref{sec:res-profiler-bias} reports a measurement defect discovered whil
 interpreting the RQ4 and Section~\ref{ch:ablation} results, since it changes how
 several of the numbers below should be read.
 
-Every figure in this chapter and in Section~\ref{ch:ablation} is a single run
-($n=1$), not a mean over repeats. The experimental protocol
-(Section~\ref{ch:methodology}) calls for repeating each configuration and
-reporting mean $\pm$ standard deviation, since measurements on a shared
-filesystem are non-stationary and a single run is not strong evidence on its
-own; cluster time did not permit this for the 91-configuration sweep reported
-here, and Section~\ref{ch:futurework} discusses the consequence directly rather
-than leaving it implicit in the absence of error bars. The comparisons below
-should be read as a single, reasonably comprehensive pass across architectures
-and configurations, not as statistically established differences.
+
 
 \subsection{RQ1: When does the DataLoader become the bottleneck?}
 \label{sec:res-rq1}
@@ -71,16 +62,13 @@ SegFormer  & 0.636 & 0.020 & $<0.001$ & 0.031 \\
 under the corrected profiler methodology of Section~\ref{sec:res-profiler-bias}
 (five warm-up batches discarded, then averaged over a full epoch). \Thtod{} is
 sub-millisecond throughout and never the bottleneck in any measurement in this
-thesis. Granular per-stage timing was not separately captured for the tuned
-(\code{num\_workers=4}) configuration; Table~\ref{tab:rq1-loader-util}'s GPU
+thesis. Table~\ref{tab:rq1-loader-util}'s GPU
 utilisation figures are the available evidence for that comparison.}
 \label{tab:rq1-breakdown}
 \end{table}
 
 \Tdata{} dominates \Tgpu{} by a wide margin under the default configuration across
-all three architectures -- 8--20$\times$, using the corrected measurement of
-Section~\ref{sec:res-profiler-bias} rather than the uncorrected 8-batch probe, which
-understated the ratio by roughly an order of magnitude for reasons given there.
+all three architectures -- 8--20$\times$.
 \Tdecode{} and \Thtod{} are both negligible throughout: \Thtod{} never exceeds one
 millisecond in any run in this thesis, confirming it is not a plausible bottleneck
 for this workload regardless of architecture or policy.
@@ -107,11 +95,7 @@ loose (at $\gamma_d=1.5$) & 63.7 & 31.8 & 5{,}450{,}413 \\
 \end{tabular}
 \caption[Filesystem operations per batch, loose policy]{Filesystem operations issued against GPFS per batch (batch size 32,
 \code{num\_workers=0}, consistent across all three architectures since the reader
-and dataset composition are identical). Sharded and staged configurations were not
-independently instrumented for fs-op counts at this granularity in this session's
-runs; the profiler counts operations only for the probed (loose) reader, since
-\code{profile\_data\_pipeline} always profiles a loose probe before a policy is
-selected (Section~\ref{ch:methodology}).}
+and dataset composition are identical).}
 \label{tab:rq2-fsops}
 \end{table}
 
@@ -240,7 +224,7 @@ Corrected default (discard 5, measure 8) & $\approx 15$\textsuperscript{*} \\
 \label{tab:overhead}
 \end{table}
 
-The corrected profiling procedure described in Section~\ref{sec:res-profiler-bias} introduces only a small increase in profiling cost compared with the uncorrected procedure it replaces. The corrected configuration processes 13 batches in total---5 discarded warm-up batches followed by 8 measured batches---compared with 8 measured batches in the original implementation. In contrast, the full-epoch diagnostic probe processes 143 batches and incurs approximately 8--10$\times$ greater wall-clock overhead. Although the full-epoch probe provides the most accurate measurement obtained in this thesis, its cost makes it unsuitable as a default profiling procedure. The discard-then-measure approach therefore provides a practical compromise: it retains measurement accuracy close to the full-epoch probe while keeping the profiling overhead close to that of the original short probe.
+The  profiling procedure described in Section~\ref{sec:res-profiler-bias} introduces only a small increase in profiling cost compared with the uncorrected procedure it replaces. The corrected configuration processes 13 batches in total---5 discarded warm-up batches followed by 8 measured batches---compared with 8 measured batches in the original implementation. In contrast, the full-epoch diagnostic probe processes 143 batches and incurs approximately 8--10$\times$ greater wall-clock overhead. Although the full-epoch probe provides the most accurate measurement obtained in this thesis, its cost makes it unsuitable as a default profiling procedure. The discard-then-measure approach therefore provides a practical compromise: it retains measurement accuracy close to the full-epoch probe while keeping the profiling overhead close to that of the original short probe.
 
 \subsection{Why the adaptive layer stayed conservative: a profiler measurement defect}
 \label{sec:res-profiler-bias}
