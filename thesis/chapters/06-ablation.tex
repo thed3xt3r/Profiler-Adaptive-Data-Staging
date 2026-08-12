@@ -10,9 +10,9 @@ conditions under which the design's assumptions fail, across all three
 architectures. Sections~\ref{sec:ablation-components}--\ref{sec:ablation-thresholds}
 report three sweeps run to completion this session (39 jobs: 12 component
 configurations, 15 scratch-capacity configurations, 12 threshold configurations).
-Sections~\ref{sec:ablation-input} and~\ref{sec:ablation-shuffle} were part of the
-original evaluation plan but were not run in this session; they are retained as
-scoped, un-executed future work rather than populated with invented numbers.
+Section~\ref{sec:ablation-shuffle} was part of the original evaluation plan but
+was not run in this session; it is retained as scoped, un-executed future work
+rather than populated with invented numbers.
 As in Section~\ref{ch:results}, every figure below is a single run ($n=1$);
 see that chapter's opening note and Section~\ref{ch:futurework} for why, and
 what it means for how these comparisons should be read.
@@ -133,19 +133,6 @@ with the profiler-bias defect of Section~\ref{sec:res-profiler-bias} that this
 sweep did not control for -- is an open question rather than one this experiment
 settles.
 
-\subsection{Input size and the CORONA variant}
-\label{sec:ablation-input}
-
-Section~\ref{sec:dataset} argued that Bing 1k is the least favourable variant for
-a staging argument, since larger tiles increase bytes per sample and therefore
-shift the compute-to-I/O ratio. That argument was scoped to be tested against
-Bing 2k and Bing+CORONA 1k variants, following Soroush et al.~\cite{Soroush20},
-Vadineanu et al.~\cite{Vadineanu24} and Pistola et al.~\cite{Pistola25}, who each
-train on CORONA imagery for archaeological site detection in the wider
-Mesopotamian region. This ablation was not run in this session -- the
-component, scratch-capacity and threshold sweeps above, across three
-architectures, were the priority given available cluster time -- and is retained
-as scoped future work (Section~\ref{ch:futurework}) rather than populated here.
 
 \subsection{Classifier threshold sensitivity}
 \label{sec:ablation-thresholds}

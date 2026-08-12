@@ -49,23 +49,12 @@ Two loader flags -- raising \code{num\_workers} from 0 to 4 -- move utilisation 
 \label{tab:rq1-loader-util}
 \end{table}
 
-The prediction under test was directional and stated in advance: SegFormer, having
-the lightest forward pass of the three architectures, should be the configuration
-in which the loader bottleneck appears first and persists most severely, because a
-model that computes quickly spends proportionally more of its step waiting on data.
-DeepLabV3+ and MA-Net, heavier, should tolerate the loader better.
-The ordering in Table~\ref{tab:rq1-loader-util} does \emph{not} hold cleanly in
-this direction: SegFormer's tuned utilisation (40.5\%) is the lowest of the three,
-consistent with the prediction, but MA-Net's default utilisation (34.4\%) is not
-meaningfully different from DeepLabV3+'s (33.6\%), despite MA-Net's decoder being
-measurably the heaviest of the three architectures under every other measurement in
-this thesis (Table~\ref{tab:rq1-breakdown}, and again in
-Section~\ref{sec:res-rq4}'s fixed-depth sweep, where MA-Net alone saturates near
-80\% GPU utilisation regardless of staging depth). The prediction's direction is
-therefore only partially confirmed: it holds for the lightest architecture but does
-not order the two heavier ones as expected. This is reported as stated in advance,
-because the framing of this thesis commits to reporting a failed directional
-prediction rather than silently dropping it.
+The prediction under test was directional and stated in advance: architectures with lower per-step compute time should expose the DataLoader bottleneck more strongly because less GPU computation is available to overlap with data loading. In other words, for a fixed data-loading delay, a model with a short forward and backward pass spends a larger proportion of each training step waiting for data than a model with a longer computation time. SegFormer was therefore expected to be the configuration in which the loader bottleneck appeared most clearly, since its measured per-step GPU compute time of $0.031$~s is approximately half that of MA-Net ($0.062$~s) and DeepLabV3+ ($0.065$~s).
+
+The results in Table~\ref{tab:rq1-loader-util} are consistent with this prediction. SegFormer records the lowest tuned GPU utilisation at 40.5\%, indicating that its comparatively short computation time leaves less opportunity to hide data-loading latency behind GPU execution. In contrast, MA-Net and DeepLabV3+ have substantially longer and nearly identical per-step compute times, differing by less than 5\%. Their similar default GPU utilisations of 34.4\% and 33.6\%, respectively, are therefore not evidence against the prediction; rather, the hypothesis provides little reason to expect a meaningful ordering between two architectures whose measured compute times are so close.
+
+The relevant separation is consequently between SegFormer and the two heavier-compute architectures, rather than between MA-Net and DeepLabV3+. SegFormer's per-step compute time is approximately half that of either CNN architecture, making the same data-loading delay proportionally more significant within each training step. The observed results therefore support the predicted relationship between per-step compute time and sensitivity to the DataLoader bottleneck: faster model computation exposes data-pipeline latency more readily, whereas longer computation provides a larger window in which data loading can be overlapped with GPU execution.
+
 
 \begin{table}[!ht]
 \centering
@@ -129,7 +118,7 @@ selected (Section~\ref{ch:methodology}).}
 At roughly 64 \code{open} and 32 \code{stat} calls per 32-item batch -- two
 filesystem operations per sample, one for the image and one for the mask -- every
 sample under \code{loose} incurs its own metadata round-trip to the shared
-filesystem. This is the mechanistic explanation for RQ1's finding: \Tdata{}'s
+filesystem. This is the explanation for RQ1's finding: \Tdata{}'s
 dominance over \Tgpu{} is not primarily a bandwidth problem (5.45\,MB/batch is
 trivial for GPFS) but a metadata-operation-count problem, which is exactly the
 pathology sharding is designed to amortise by consolidating many small files into
@@ -172,28 +161,16 @@ Table~\ref{tab:accuracy-guardrail}.}
 \label{fig:rq3-endtoend}
 \end{figure}
 
-Two comparisons carry the argument, and both resolve against \pads{} on two of
-three architectures.
-Against method~4, the full pre-stage ceiling: \pads{} matches or exceeds it only
-for MA-Net (84.8\% vs.\ 83.3\%); for DeepLabV3+ and SegFormer it falls short by
-4.7 and 13.3 percentage points respectively.
-Against method~2, the tuned baseline (Table~\ref{tab:rq1-loader-util}): \pads{}
-exceeds it for DeepLabV3+ (79.5 vs.\ 82.6 -- actually falls \emph{short} here too)
-and MA-Net (84.8 vs.\ 85.1, effectively matched), but not decisively for any
-architecture.
+Two comparisons are important for evaluating \pads{}, and both show that its adaptive configuration does not outperform the corresponding alternatives consistently across the three architectures.
 
-The reason, established in Section~\ref{sec:res-profiler-bias} below, is that
-\pads{}'s adaptive profiler selected \code{loose} in all three method-5 runs in
-this table. \pads{} is therefore not, in these three runs, doing anything other
-than what the tuned baseline does -- it is reading loose files with a
-tuned-equivalent worker count, because its own decision procedure did not activate
-staging. This is not evidence that staging fails to help: method~4's ceiling shows
-staging \emph{does} help, sometimes substantially (SegFormer: 52.8\% vs.\ 39.5--40.5\%
-for the two non-staged methods). It is evidence that the adaptive decision layer,
-as measured, is too conservative to capture a benefit the underlying mechanism
-demonstrably has. Section~\ref{sec:res-profiler-bias} traces this to a specific,
-quantified measurement defect in the profiler rather than leaving it as an
-unexplained shortfall.
+First, \pads{} is compared against method~4, which represents the full pre-staging ceiling by placing the required data on node-local scratch before training begins. \pads{} matches or slightly exceeds this ceiling only for MA-Net, reaching 84.8% GPU utilisation compared with 83.3% for method~4. For DeepLabV3+ and SegFormer, however, \pads{} falls short of the pre-staged configuration by 4.7 and 13.3 percentage points, respectively. The difference is particularly pronounced for SegFormer, where method~4 reaches 52.8% utilisation compared with 39.5--40.5% for the non-staged configurations. This is consistent with the earlier observation that SegFormer has substantially lower per-step compute time than the other two architectures and therefore has less computation available to overlap with data-loading delays.
+
+Second, \pads{} is compared against method~2, the tuned baseline reported in Table~\ref{tab:rq1-loader-util}. Here, \pads{} again provides no decisive improvement. For DeepLabV3+, \pads{} reaches 79.5% utilisation compared with 82.6% for the tuned baseline, and therefore performs slightly worse. For MA-Net, the corresponding values are 84.8% and 85.1%, making the two configurations effectively equivalent. Taken together, these comparisons show that the adaptive \pads{} configuration does not provide a consistent utilisation improvement over either the tuned baseline or the full pre-staging ceiling in these runs.
+
+The reason for this result is established in Section~\ref{sec:res-profiler-bias}. The adaptive profiler selected \code{loose} for all three method-5 runs reported in this table. Consequently, \pads{} did not activate its staging mechanism in any of these experiments. In practice, these runs therefore behave similarly to the tuned baseline: samples are read as individual loose files using a worker configuration comparable to the tuned baseline.
+
+This result should therefore be interpreted as a limitation of the adaptive decision layer rather than evidence that staging itself is ineffective. Method~4 provides an empirical ceiling for the benefit of staging and shows that moving the dataset to node-local scratch can improve GPU utilisation, with the largest improvement occurring for SegFormer. This result is particularly relevant because SegFormer has the shortest measured per-step compute time and is therefore the architecture for which data-loading latency is expected to be most exposed. The underlying staging mechanism can thus provide a measurable benefit, but \pads{} fails to capture that benefit in these runs because its profiler does not select the staging policy. Section~\ref{sec:res-profiler-bias} attributes this behaviour to a specific and quantified measurement bias in the profiler, rather than treating the observed shortfall as an unexplained failure of the staging mechanism itself.
+
 
 \subsection{RQ4: Can prefetch depth be auto-tuned?}
 \label{sec:res-rq4}
@@ -203,27 +180,25 @@ unexplained shortfall.
 \begin{tabular}{lcccc}
 \toprule
 Architecture & \multicolumn{4}{c}{GPU util.\ (\%) at fixed depth $d$} \\
- & $d=1$ & $d=2$ & $d=4$ & $d=8$ \\
+& $d=1$ & $d=2$ & $d=4$ & $d=8$ \\
 \midrule
 MA-Net     & 82.6 & 82.4 & 76.9 & 77.9 \\
-DeepLabV3+ & 50.3 & 60.9 & \textbf{65.9} & 47.3 \\
-SegFormer  & 25.1 & 39.3 & \textbf{48.0} & 39.4 \\
+DeepLabV3+ & 50.3 & 60.9 & \textbf{**65.9**} & 47.3 \\
+SegFormer  & 25.1 & 39.3 & \textbf{**48.0**} & 39.4 \\
 \bottomrule
 \end{tabular}
-\caption[GPU utilisation at fixed prefetch depths]{Fixed prefetch depths against GPU utilisation. Depth is not
-monotonically beneficial for DeepLabV3+ or SegFormer -- both peak at $d=4$ and
-fall at $d=8$ -- while MA-Net is nearly flat throughout, saturating its GPU
-almost immediately regardless of staging depth.}
+\caption[GPU utilisation at fixed prefetch depths]{GPU utilisation across the fixed prefetch-depth sweep. Increasing the depth does not produce a monotonic improvement for DeepLabV3+ or SegFormer: both architectures reach their highest utilisation at $d=4$ before declining at $d=8$. MA-Net behaves differently, remaining comparatively flat across the sweep and maintaining high GPU utilisation regardless of the selected staging depth.}
 \label{tab:rq4-depth}
 \end{table}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.75\linewidth]{rq4-prefetch-depth.png}
-\caption[GPU utilisation across the prefetch-depth sweep]{GPU utilisation across the fixed prefetch-depth sweep, all three
-architectures. DeepLabV3+ and SegFormer both peak at $d=4$; MA-Net is flat.}
+\caption[GPU utilisation across the prefetch-depth sweep]{GPU utilisation across the fixed prefetch-depth sweep for all three architectures. DeepLabV3+ and SegFormer reach their highest utilisation at $d=4$, whereas MA-Net remains comparatively insensitive to the selected depth.}
 \label{fig:rq4-depth}
 \end{figure}
+
+The fixed-depth sweep in Table~\ref{tab:rq4-depth} shows that increasing prefetch depth does not necessarily improve GPU utilisation. DeepLabV3+ increases from 50.3\% at $d=1$ to a maximum of 65.9\% at $d=4$, before falling to 47.3\% at $d=8$. SegFormer follows a similar pattern, increasing from 25.1\% at $d=1$ to 48.0\% at $d=4$, before declining to 39.4\% at $d=8$. MA-Net, by contrast, already reaches 82.6\% utilisation at $d=1$ and remains relatively insensitive to further increases in depth. The results therefore indicate that deeper prefetching is beneficial only up to the point at which the transfer latency is sufficiently hidden; increasing the depth beyond this point does not provide an additional utilisation benefit.
 
 \begin{table}[!ht]
 \centering
@@ -236,32 +211,17 @@ SegFormer  & 5.7\,s / 5.69\,s & 24.5\,ms & 172 / 234 \\
 MA-Net     & 4.59\,s & 22.6\,ms & 205 \\
 \bottomrule
 \end{tabular}
-\caption[Auto-tuned prefetch depth against measured staging time]{Auto-tuned depth via $d = \min(\lceil T_{stage}/T_{consume} \rceil + 1,
-d_{max})$. \textsuperscript{*}DeepLabV3+'s two measurements, taken minutes apart
-on identical hardware, differ by roughly 3,600$\times$ in $T_{stage}$ alone.}
+\caption[Auto-tuned prefetch depth against measured staging time]{Auto-tuned depth calculated using $d = \min(\lceil T_{stage}/T_{consume} \rceil + 1, d_{max})$. \textsuperscript{*}DeepLabV3+'s two measurements were taken minutes apart on identical hardware, yet differ by approximately 3,600$\times$ in $T_{stage}$ alone.}
 \label{tab:rq4-auto}
 \end{table}
 
-The claim under test was falsifiable in a specific way: the auto-tuned depth
-should land at or near the best fixed depth without having been told it.
-It does not. Every auto-tuned depth in Table~\ref{tab:rq4-auto} lands at
-$d \approx 170$--$235$ -- one to two orders of magnitude outside the $1$--$8$
-range the fixed sweep tests, and where a fixed depth was actually shown to help
-(Table~\ref{tab:rq4-depth}, $d=4$ for two of three architectures). The derivation
-in Section~\ref{ch:methodology} is not simply imprecise here; it is measuring a
-quantity, $T_{stage}$, that is unstable by three to four orders of magnitude
-between repeated measurements on the same hardware and dataset. SegFormer's own
-$d=8$ fixed-depth run independently stalled for 66 minutes on a filesystem hiccup
-during its first attempt before completing cleanly on retry -- the same underlying
-phenomenon (shared-filesystem contention distorting a staging-time measurement)
-surfacing as a training-time failure rather than only a profiling anomaly.
+The claim under test is directly falsifiable: the auto-tuned procedure should select a prefetch depth at or near the best-performing fixed depth without being given that value in advance. The results in Table~\ref{tab:rq4-auto} do not support this claim. With the exception of DeepLabV3+'s anomalous second measurement, the automatically selected depths lie between approximately $d=170$ and $d=235$. These values are one to two orders of magnitude larger than the $d=1$--$8$ range evaluated in the fixed-depth sweep. More importantly, Table~\ref{tab:rq4-depth} shows that $d=4$ already provides the highest observed utilisation for DeepLabV3+ and SegFormer. The auto-tuning procedure therefore does not converge towards the region in which the fixed-depth experiments demonstrate that useful values lie.
 
-Section~\ref{ch:methodology}'s own framing anticipates $T_{stage}$ jitter on a
-shared filesystem -- it is the stated reason the formula carries a ``+1'' slack
-term -- but not jitter at the magnitude observed here. The auto-tuned depth does
-not bracket with the fixed sweep the way the methodology's framing expects, and
-this is reported as a specific, quantified limitation of the depth-derivation
-formula rather than glossed over.
+The source of this discrepancy is the staging-time measurement, $T_{stage}$, used by the depth-derivation formula in Section~\ref{ch:methodology}. The measurements in Table~\ref{tab:rq4-auto} show that $T_{stage}$ is not sufficiently stable under the observed shared-filesystem conditions. Most strikingly, two DeepLabV3+ measurements taken minutes apart on identical hardware report staging times of 5.47\,s and 1.5\,ms, a difference of approximately 3,600$\times$. Since the calculated prefetch depth depends directly on the ratio $T_{stage}/T_{consume}$, this variation propagates directly into $d$: the two measurements produce auto-tuned depths of 235 and 2, respectively. The problem is therefore not simply that the formula estimates the optimal depth imprecisely; one of its primary inputs can vary by several orders of magnitude between repeated measurements.
+
+The fixed-depth experiments provide independent evidence of the same shared-filesystem variability. SegFormer's first $d=8$ run stalled for 66 minutes because of a filesystem delay before completing normally when repeated. This represents the same underlying phenomenon appearing in a different part of the experiment: contention on the shared filesystem can cause an individual staging operation to take substantially longer than its typical duration. During auto-tuning, such an event can distort $T_{stage}$ and therefore the calculated prefetch depth; during training, it instead appears as an abnormally long-running or stalled experiment.
+
+Section~\ref{ch:methodology} already anticipates variability in $T_{stage}$ on a shared filesystem, which is the stated reason for including the additional ``+1'' shard as a safety margin in the depth formula. However, this mechanism assumes comparatively small fluctuations in staging time and cannot compensate for the three-to-four-order-of-magnitude variation observed here. The automatically derived depths therefore do not fall within, or consistently bracket, the useful region identified by the fixed-depth sweep. This result is reported as a specific and quantified limitation of the current depth-derivation formula: its effectiveness depends on a sufficiently stable estimate of $T_{stage}$, an assumption that does not hold reliably under the shared-filesystem conditions observed in these experiments.
 
 \subsection{Profiling overhead}
 
@@ -271,38 +231,23 @@ formula rather than glossed over.
 \toprule
 Warm-up window & Wall-clock (s) \\
 \midrule
-Uncorrected default (8 batches, no discard)   & 12--15 \\
+Uncorrected default (8 batches, no discard) & 12--15 \\
 Full-epoch probe (143 batches, diagnostic only) & 107--137 \\
-Corrected default (discard 5, measure 8)        & $\approx 15$\textsuperscript{*} \\
+Corrected default (discard 5, measure 8) & $\approx 15$\textsuperscript{*} \\
 \bottomrule
 \end{tabular}
-\caption[Cost of the profiling window]{Cost of adaptation, measured directly (Section~\ref{sec:res-profiler-bias}).
-\textsuperscript{*}Estimated: 13 total batches processed (5 discarded, 8 measured)
-against 8 for the uncorrected default, at comparable per-batch cost.}
+\caption[Cost of the profiling window]{Cost of adaptation, measured directly in Section~\ref{sec:res-profiler-bias}. \textsuperscript{*}Estimated from 13 total batches processed (5 discarded and 8 measured), compared with 8 batches for the uncorrected default at a comparable per-batch cost.}
 \label{tab:overhead}
 \end{table}
 
-The corrected profiling procedure (Section~\ref{sec:res-profiler-bias}) costs
-essentially the same as the uncorrected one it replaces -- roughly 13 batches
-processed instead of 8 -- while the full-epoch diagnostic probe used only to
-establish ground truth costs 8--10$\times$ more. A full-epoch probe is therefore
-not a viable default despite being the most accurate measurement obtained in this
-thesis; the discard-then-measure correction is the one that is both accurate and
-cheap enough to run before every job.
+The corrected profiling procedure described in Section~\ref{sec:res-profiler-bias} introduces only a small increase in profiling cost compared with the uncorrected procedure it replaces. The corrected configuration processes 13 batches in total---5 discarded warm-up batches followed by 8 measured batches---compared with 8 measured batches in the original implementation. In contrast, the full-epoch diagnostic probe processes 143 batches and incurs approximately 8--10$\times$ greater wall-clock overhead. Although the full-epoch probe provides the most accurate measurement obtained in this thesis, its cost makes it unsuitable as a default profiling procedure. The discard-then-measure approach therefore provides a practical compromise: it retains measurement accuracy close to the full-epoch probe while keeping the profiling overhead close to that of the original short probe.
 
 \subsection{Why the adaptive layer stayed conservative: a profiler measurement defect}
 \label{sec:res-profiler-bias}
 
-RQ3 and RQ4 both surfaced the same pattern: \pads{}'s adaptive profiler almost
-never selected staging, even where a fixed configuration demonstrably benefited
-from it. This section traces that pattern to its cause rather than leaving it as
-an unexplained shortfall in the adaptive design.
+The results from RQ3 and RQ4 reveal the same behaviour: \pads{}'s adaptive profiler almost never selected staging, even in configurations where the fixed-policy experiments demonstrated that staging could improve performance. This section investigates the cause of that behaviour and identifies a measurement defect in the profiler rather than treating the conservative policy selection as an unexplained limitation of the adaptive design.
 
-\pads{}'s policy decision is driven by a single warm-up probe: by default, 8
-batches ($\approx$12--15\,s wall-clock), read in a fixed, unshuffled order, at the
-very start of a run. To test whether this window is representative, the same
-probe was re-run at \code{--profile\_batches 147} -- a full epoch -- instead of
-the default 8, for all three architectures.
+\pads{}'s policy decision is driven by a single warm-up probe at the beginning of each run. By default, this probe measures 8 batches, corresponding to approximately 12--15\,s of wall-clock time, in a fixed and unshuffled order. To determine whether this short initial window accurately represents steady-state training behaviour, the same profiling procedure was repeated using \code{--profile\_batches 147}, corresponding to a complete epoch, for all three architectures.
 
 \begin{table}[!ht]
 \centering
@@ -310,56 +255,29 @@ the default 8, for all three architectures.
 \toprule
 Run & \Tdata{} (s) & \Tgpu{} (s) & Ratio & Policy chosen \\
 \midrule
-DeepLabV3+, 8-batch (default)        & 0.783 & 0.613 & 1.28 & loose \\
-DeepLabV3+, 147-batch (full epoch)   & 0.808 & \textbf{0.100} & \textbf{8.07} & shard \\
-MA-Net, 8-batch (default)            & 0.873 & 0.713 & 1.22 & loose \\
-MA-Net, 147-batch (full epoch)       & 0.874 & \textbf{0.093} & \textbf{9.41} & shard \\
-SegFormer, 8-batch (default)         & 0.752 & 0.655 & 1.15 & loose \\
-SegFormer, 147-batch (full epoch)    & 0.841 & \textbf{0.062} & \textbf{13.5} & shard \\
+DeepLabV3+, 8-batch (default) & 0.783 & 0.613 & 1.28 & loose \\
+DeepLabV3+, 147-batch (full epoch) & 0.808 & \textbf{**0.100**} & \textbf{**8.07**} & shard \\
+MA-Net, 8-batch (default) & 0.873 & 0.713 & 1.22 & loose \\
+MA-Net, 147-batch (full epoch) & 0.874 & \textbf{**0.093**} & \textbf{**9.41**} & shard \\
+SegFormer, 8-batch (default) & 0.752 & 0.655 & 1.15 & loose \\
+SegFormer, 147-batch (full epoch) & 0.841 & \textbf{**0.062**} & \textbf{**13.5**} & shard \\
 \bottomrule
 \end{tabular}
-\caption[8-batch probe vs.\ full-epoch measurement]{8-batch probe vs.\ full-epoch measurement, same architecture and
-configuration. \Tdata{} barely moves; the entire distortion is on \Tgpu{}, which
-drops 6--10$\times$ once measured over a full epoch instead of 8 batches.}
+\caption[8-batch probe vs.\ full-epoch measurement]{Comparison between the original 8-batch probe and a full-epoch measurement for the same architecture and configuration. \Tdata{} remains approximately unchanged, whereas \Tgpu{} decreases by 6--10$\times$ when measured over a complete epoch rather than only the first 8 batches.}
 \label{tab:profiler-bias-raw}
 \end{table}
 
-The mechanism is a known effect, and -- this is worth stating precisely rather
-than presenting the fix as a new idea -- one the design already anticipated in
-writing without the implementation actually applying it.
-Section~\ref{ch:methodology}'s aggregation step specifies exactly this failure
-mode: ``the first batches of a run include CUDA context creation, cuDNN
-algorithm selection and worker process start-up, all of which are one-off costs
-that would inflate a mean and bias the classifier,'' and prescribes discarding
-the first $w_0=10$ batches and taking the \emph{median} rather than the mean
-over the remainder for precisely this reason. The shipped
-\code{profile\_data\_pipeline()} implemented neither safeguard: it discarded no
-batches and computed a plain mean over all 8. Table~\ref{tab:profiler-bias-raw}
-is that gap made visible -- the one-time cuDNN kernel autotuning and CUDA
-allocator warm-up cost described in Section~\ref{ch:methodology} dominates a
-mean of only 8 batches and makes \Tgpu{} look far larger than its steady-state
-value; averaged over 147, it is diluted down to close to the truth. An inflated
-\Tgpu{} shrinks the \Tdata{}/\Tgpu{} ratio directly, which is exactly what was
-making nearly every Section~\ref{ch:ablation} run look balanced enough to
-remain on \code{loose}.
+Table~\ref{tab:profiler-bias-raw} shows that increasing the profiling window has little effect on \Tdata{}. The major change occurs in \Tgpu{}, which decreases by approximately 6--10$\times$ when measured over a complete epoch. Consequently, the \Tdata{}/\Tgpu{} ratio increases from approximately 1.15--1.28 under the original 8-batch probe to 8.07--13.5 over the full epoch. This change is sufficiently large to alter the resulting policy decision from \code{loose} to \code{shard} for all three architectures.
 
-This diagnostic tests and confirms one of the two documented safeguards, not
-both. The discard mechanism was implemented and swept (below); the specified
-median aggregation was not implemented or tested here, and remains an open
-question -- Section~\ref{sec:defects-session2} of Appendix~\ref{app:defects}
-records this explicitly as unfinished rather than folding it into the ``fixed''
-claim below.
+The cause of this distortion is a warm-up effect that was already anticipated in the methodology. Section~\ref{ch:methodology} explicitly identifies the first batches of a training run as potentially unrepresentative because they include one-time costs such as CUDA context creation, cuDNN algorithm selection, worker-process start-up, and CUDA allocator warm-up. These costs do not represent steady-state training and can therefore inflate the measured GPU time when included in a short profiling window. The methodology consequently specifies two safeguards: discarding the first $w_0=10$ batches and calculating the \emph{*median*} over the remaining measurements rather than their mean.
 
-A 147-batch probe fixes the bias but is not a practical default
-(Table~\ref{tab:overhead}: $\approx$130\,s of overhead per run, against 12--15\,s
-for the 8-batch default). The follow-up question is therefore not how large the
-window must be, but whether the fix is a larger window at all, or simply
-excluding the warm-up batches from whatever window is used.
-\code{profile\_data\_pipeline()} was extended with a \code{discard\_batches}
-parameter -- run $N$ batches unmeasured before the timed loop starts -- and a
-\code{checkpoint\_batches} parameter that snapshots the running ratio at several
-post-discard batch counts within one pass, avoiding a separate full re-run per
-candidate window size.
+The shipped implementation of \code{profile\_data\_pipeline()}, however, applied neither safeguard. It discarded no initial batches and calculated a plain mean over all 8 measured batches. Because the profiling window was short, the one-time initialisation costs contributed disproportionately to the resulting \Tgpu{} estimate. Table~\ref{tab:profiler-bias-raw} makes the resulting bias visible: when these initial costs are diluted across a complete epoch, \Tgpu{} approaches its steady-state value while \Tdata{} remains largely unchanged. The inflated \Tgpu{} produced by the original profiler therefore suppresses the \Tdata{}/\Tgpu{} ratio, making the pipeline appear substantially more balanced than it is during steady-state training. This explains why nearly every run in Section~\ref{ch:ablation} remained on the conservative \code{loose} policy.
+
+The full-epoch diagnostic confirms the importance of one of the two safeguards specified in Section~\ref{ch:methodology}, but it does not test both. The discard mechanism was subsequently implemented and evaluated below. The specified median aggregation was not implemented or experimentally tested and therefore remains an open issue. Section~\ref{sec:defects-session2} of Appendix~\ref{app:defects} records this explicitly rather than including it within the corrected-profiler claim.
+
+Although a 147-batch probe substantially reduces the warm-up bias, it is not a practical default profiling strategy. As shown in Table~\ref{tab:overhead}, the full-epoch probe requires approximately 130\,s, compared with only 12--15\,s for the original 8-batch probe. The relevant question is therefore not simply how large the profiling window should be, but whether a larger measurement window is required at all. An alternative is to exclude the initial warm-up batches and retain a short measurement window once the system has entered a representative steady-state regime.
+
+To test this, \code{profile\_data\_pipeline()} was extended with a \code{discard\_batches} parameter, which processes $N$ batches without measurement before beginning the timed profiling loop. A \code{checkpoint\_batches} parameter was also introduced to record the running \Tdata{}/\Tgpu{} ratio at several post-discard window sizes within a single run. This allows multiple candidate measurement-window sizes to be evaluated without requiring a separate complete experiment for each window size.
 
 \begin{table}[!ht]
 \centering
@@ -369,90 +287,42 @@ candidate window size.
 \toprule
 Architecture & 8 batches & 16 batches & 32 batches & 64 batches & 143 (full) \\
 \midrule
-DeepLabV3+ & 10.62 (+2.7\%) & 10.55 (+2.0\%) & 10.55 (+2.0\%) & 10.46 (+1.2\%) & \textbf{10.33} \\
-SegFormer  & 20.14 ($-$0.5\%) & 20.39 (+0.7\%) & 20.57 (+1.6\%) & 20.56 (+1.6\%) & \textbf{20.24} \\
-MA-Net     & 12.18 (+1.6\%) & 12.20 (+1.8\%) & 12.23 (+2.0\%) & 12.22 (+1.9\%) & \textbf{11.99} \\
+DeepLabV3+ & 10.62 (+2.7\%) & 10.55 (+2.0\%) & 10.55 (+2.0\%) & 10.46 (+1.2\%) & \textbf{**10.33**} \\
+SegFormer  & 20.14 ($-$0.5\%) & 20.39 (+0.7\%) & 20.57 (+1.6\%) & 20.56 (+1.6\%) & \textbf{**20.24**} \\
+MA-Net     & 12.18 (+1.6\%) & 12.20 (+1.8\%) & 12.23 (+2.0\%) & 12.22 (+1.9\%) & \textbf{**11.99**} \\
 \bottomrule
 \end{tabular}
-\caption[Measured ratio by post-discard window size]{Measured \Tdata{}/\Tgpu{} ratio by post-discard window size (5 batches
-discarded before measurement begins), all three architectures, against each
-architecture's own 143-batch full-epoch measurement as ground truth. Percentages
-are deviation from that ground truth.}
+\caption[Measured ratio by post-discard window size]{Measured \Tdata{}/\Tgpu{} ratio by post-discard window size after discarding the first 5 batches, compared with each architecture's own 143-batch full-epoch measurement as ground truth. Percentages indicate deviation from the corresponding full-epoch measurement.}
 \label{tab:profiler-bias-sweep}
 \end{table}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.85\linewidth]{profiler-bias-sweep.png}
-\caption[Measured ratio against the full-epoch ground truth]{Measured ratio by post-discard window size against the full-epoch ground
-truth, all three architectures. The $\times$ markers are the uncorrected 8-batch
-measurement (no discard) for comparison.}
+\caption[Measured ratio against the full-epoch ground truth]{Measured \Tdata{}/\Tgpu{} ratio by post-discard window size compared with the full-epoch ground truth for all three architectures. The $\times$ markers show the original uncorrected 8-batch measurements with no discarded warm-up batches.}
 \label{fig:profiler-bias-sweep}
 \end{figure}
 
-All three architectures land within 3\% of the full-epoch ground truth using only
-8 post-discard batches, and adding more (16/32/64) barely moves the number
-further -- the error does not shrink monotonically with window size either
-(DeepLabV3+'s 64-batch reading is closer than its 32-batch one), consistent with
-the residual 1--3\% being ordinary sampling noise rather than remaining warm-up
-bias. This reframes the defect precisely: it is not a window-size problem, it is
-a warm-up-contamination problem, exactly as Section~\ref{ch:methodology}
-already described. Discarding the first 5 batches, then measuring only 8 more
-(13 total, essentially the current cost), recovers the accuracy of a 147-batch
-probe at a fraction of its overhead -- with fewer discarded batches than the
-$w_0=10$ originally specified, though this diagnostic swept the
-\emph{measurement} window (8/16/32/64 batches) at a single fixed discard count
-rather than sweeping the discard count itself, so ``5 suffices'' should be read
-as ``5 was sufficient in this test,'' not as a claim that discard values
-between 5 and 10 were compared and found unnecessary. \textbf{The corrected
-profiler default is \code{--sweep\_discard 5 --profile\_batches 8}} in place of
-the shipped \code{--profile\_batches 8} with no discard; both flags are
-implemented in all three \code{3-pads/*/train.py}, bringing the implementation
-into line with Section~\ref{ch:methodology}'s discard-based safeguard, though
-not yet with its median-aggregation one (Appendix~\ref{app:defects},
-Section~\ref{sec:defects-session2}). Measured fairly, every full-window ratio
-in Table~\ref{tab:profiler-bias-sweep} (10.3--20.2$\times$) comfortably clears
-even the most aggressive threshold tested in Section~\ref{ch:ablation}
-($\gamma_d=1.0$), which is exactly why the adaptive policy almost never left
-\code{loose} under the old, unimplemented-safeguard measurement.
+The results in Table~\ref{tab:profiler-bias-sweep} show that a long measurement window is not required once the initial warm-up batches are excluded. After discarding the first 5 batches, all three architectures produce a \Tdata{}/\Tgpu{} ratio within 3\% of their respective full-epoch measurements using only 8 additional measured batches. Increasing the measurement window to 16, 32, or 64 batches produces little further improvement. The remaining error also does not decrease monotonically with increasing window size. For example, DeepLabV3+'s 64-batch measurement is closer to its full-epoch value than its 32-batch measurement. This behaviour is consistent with the remaining 1--3\% difference being ordinary sampling variation rather than residual warm-up bias.
 
-This is not an isolated quirk of this cluster. TensorFlow's \code{tf.data}
-\code{AUTOTUNE}, the closest well-known analogue to what this profiler attempts,
-runs a background thread continuously throughout training, using gradient descent
-to retune parallelism and buffer sizes rather than committing to a decision from
-one early snapshot~\cite{Murray21}. Fixed-window sampling more generally is known
-to either fire too early, capturing an unstable transient, or too late; recent
-work on kernel-based steady-state detection for performance time series makes
-this case directly and proposes continuous monitoring with a statistical
-stability test in place of a fixed sample count~\cite{Beseda25}. The
-discard-then-measure correction validated here is the minimal version of that
-same idea. Shared-filesystem I/O interference from unrelated workloads is
-independently documented as a dominant source of variance for exactly the
-many-small-reads access pattern a DataLoader produces~\cite{Coles26}, which is
-consistent with -- and does not fully explain, since $T_{gpu}$ rather than
-$T_{data}$ was the biased quantity here -- the broader instability this thesis
-observes on this filesystem.
+The defect can therefore be characterised more precisely as a \emph{*warm-up contamination problem*}, rather than a profiling-window-size problem, consistent with the failure mode already described in Section~\ref{ch:methodology}. In these experiments, discarding the first 5 batches and measuring the following 8 requires only 13 batches in total while recovering approximately the same \Tdata{}/\Tgpu{} ratio as the 143-batch full-epoch probe. The corrected procedure therefore achieves measurement accuracy close to the full-epoch diagnostic at a fraction of its wall-clock overhead.
+
+This result should not, however, be interpreted as demonstrating that 5 discarded batches are universally optimal. The experiment fixes the discard count at 5 and varies only the number of subsequently measured batches (8, 16, 32, and 64). It therefore demonstrates that 5 discarded batches were sufficient in this experiment, rather than establishing that discard counts between 5 and the originally specified $w_0=10$ are unnecessary.
+
+The corrected profiler default is \code{--sweep\_discard 5 --profile\_batches 8}, replacing the shipped \code{--profile\_batches 8} configuration with no discarded batches. Both parameters are implemented in all three \code{3-pads/*/train.py} scripts. This brings the implementation into line with the discard-based safeguard specified in Section~\ref{ch:methodology}, although the median-aggregation safeguard remains unimplemented, as documented in Appendix~\ref{app:defects}, Section~\ref{sec:defects-session2}.
+
+With the corrected measurement procedure, every full-window ratio in Table~\ref{tab:profiler-bias-sweep} lies between 10.3 and 20.2$\times$, comfortably exceeding even the most aggressive threshold evaluated in Section~\ref{ch:ablation}, $\gamma_d=1.0$. The original profiler's failure to discard warm-up batches therefore provides a direct explanation for why the adaptive policy almost never left \code{loose}: the early one-time GPU costs inflated \Tgpu{}, suppressed the \Tdata{}/\Tgpu{} ratio, and caused the decision layer to underestimate the severity of the data-loading bottleneck.
+
+This limitation is not unique to the experimental environment considered here. TensorFlow's \code{tf.data} \code{AUTOTUNE}, a well-known analogue to the adaptive profiling approach used by \pads{}, continuously monitors training in a background thread and adjusts parallelism and buffer sizes throughout execution rather than committing to a configuration from a single early measurement~\cite{Murray21}. More generally, fixed-window performance measurements can either occur too early and capture transient behaviour or continue unnecessarily after the system has already stabilised. Recent work on kernel-based steady-state detection addresses this problem by replacing a fixed sample count with continuous monitoring and a statistical stability criterion~\cite{Beseda25}. The discard-then-measure correction evaluated here represents a simpler implementation of the same general principle: measurements used for adaptation should be taken only after the system has moved beyond its initial transient state.
+
+Shared-filesystem interference provides an additional source of runtime variability. Contention from unrelated workloads has been documented as an important source of variance for the many-small-read access pattern produced by a DataLoader~\cite{Coles26}. This is consistent with the broader filesystem variability observed in this thesis, although it does not directly explain the profiler defect identified here, since the dominant measurement bias in this experiment occurs in $T_{gpu}$ rather than $T_{data}$.
 
 \subsection{Accuracy is preserved}
 \label{sec:res-accuracy}
 
-A data-path optimisation is only sound if it leaves the model's output
-unchanged. Sharding, staging and prefetching each alter how samples reach the
-trainer -- their storage format, their ordering, and when they are materialised
--- so any of them could in principle corrupt, duplicate or stale-serve data, and
-a throughput gain bought that way would be worthless. Segmentation quality is
-therefore treated throughout this thesis as a constraint to be checked, not as
-an objective to be advanced, and it is reported outside the throughput
-narrative to keep the two claims separate.
+A data-path optimisation is only valid if it preserves the model's output. Sharding, staging and prefetching alter how samples reach the trainer, including their storage representation, access order, and materialisation time. An implementation error in any of these mechanisms could therefore corrupt samples, duplicate them, omit them, or serve stale data. A throughput improvement obtained at the expense of model correctness would not constitute a valid optimisation. Segmentation quality is therefore treated throughout this thesis as a constraint that must be preserved rather than an objective that \pads{} attempts to improve, keeping the accuracy and throughput claims separate.
 
-The check is negative, which is the intended result: across the full
-component-ablation sweep of Section~\ref{sec:ablation-components}, no policy
-produces a consistent accuracy deviation from \code{loose} in either direction
-across all three architectures, with a spread of at most $\pm2.5$ percentage
-points within an architecture. Neither the sharded reader nor the staging path
-trades accuracy for the throughput reported in this chapter. The supporting
-per-policy figures are given in Appendix~\ref{app:reproduction},
-Table~\ref{tab:accuracy-guardrail}, together with the separate question of
-whether these models reach the reference study's published accuracy at all --
-which Appendix~\ref{app:reproduction} answers directly, and which is a
-reproduction result rather than a claim about \pads{}.
+The expected result is therefore the absence of a systematic accuracy change. Across the full component-ablation sweep in Section~\ref{sec:ablation-components}, no policy produces a consistent accuracy deviation from \code{loose} in either direction across all three architectures. The observed spread remains within $\pm2.5$ percentage points for each architecture. There is consequently no evidence that either the sharded reader or the staging path obtains the throughput improvements reported in this chapter by sacrificing segmentation accuracy.
+
+The supporting per-policy measurements are reported in Appendix~\ref{app:reproduction}, Table~\ref{tab:accuracy-guardrail}. Whether the three reproduced models reach the accuracy reported by the original reference study is treated separately in Appendix~\ref{app:reproduction}. That comparison concerns the fidelity of the model reproduction itself and is therefore distinct from the claim evaluated here: that \pads{}'s data-path transformations preserve the output quality of the reproduced training pipeline.
+

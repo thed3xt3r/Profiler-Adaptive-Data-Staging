@@ -76,7 +76,7 @@ rather than merely improving on them.
     (Table~\ref{tab:rq1-loader-util}) were not ordered as the heavier-model
     prediction anticipated.
   \item[RQ2 - Do tar shards reduce many-small-file overhead?]
-    Mechanistically, yes: \code{loose} issues roughly two filesystem operations
+    Yes: \code{loose} issues roughly two filesystem operations
     per sample (Table~\ref{tab:rq2-fsops}), consistent with RQ1's finding that
     \Tdata{} is metadata-bound rather than bandwidth-bound. This translates into
     wall-clock benefit when the sharded/staged reader is actually invoked
@@ -129,19 +129,19 @@ reproduction reaching within $1$--$1.4$ points of the published reference figure
 be read against that reproduction rather than against the main pipeline's
 uncorrected numbers.
 
-\subsection{Closing remarks}
+% \subsection{Closing remarks}
 
-The broader observation this work supports is methodological. Effort in deep
-learning for remote sensing is conventionally directed at the model, and the
-reference study for this workload found that architectural choice moved
-segmentation quality by only a few percentage points - plausibly within the
-noise of random augmentation. What two loader flags move decisively is GPU
-utilisation, by 24 to 51 percentage points. The claim is not that loader
-configuration is a hidden lever on accuracy; it is that the GPU's idle
-time, not the model, is where this pipeline's headroom actually sits, and that
-this headroom is a throughput result, to be claimed and measured as such. The
-adaptive layer meant to capture that headroom
-automatically remains the weaker part of this work
-(Section~\ref{sec:res-profiler-bias}), and closing that gap between a mechanism
-shown to work and a decision procedure shown not to invoke it reliably is the
-most direct next step (Section~\ref{ch:futurework}).
+% The broader observation this work supports is methodological. Effort in deep
+% learning for remote sensing is conventionally directed at the model, and the
+% reference study for this workload found that architectural choice moved
+% segmentation quality by only a few percentage points - plausibly within the
+% noise of random augmentation. What two loader flags move decisively is GPU
+% utilisation, by 24 to 51 percentage points. The claim is not that loader
+% configuration is a hidden lever on accuracy; it is that the GPU's idle
+% time, not the model, is where this pipeline's headroom actually sits, and that
+% this headroom is a throughput result, to be claimed and measured as such. The
+% adaptive layer meant to capture that headroom
+% automatically remains the weaker part of this work
+% (Section~\ref{sec:res-profiler-bias}), and closing that gap between a mechanism
+% shown to work and a decision procedure shown not to invoke it reliably is the
+% most direct next step (Section~\ref{ch:futurework}).

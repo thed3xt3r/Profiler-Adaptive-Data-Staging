@@ -213,44 +213,43 @@ exact random access at the cost of forgoing compression.
 
 \subsubsection{Stage 4 - Predictive staging}
 
-Because the epoch permutation is fixed at the start of the epoch, the identity of
-the next $k$ shards is known exactly.
-\pads{} exploits this by maintaining a background staging thread that copies shard
-$i + d$ to node-local scratch while shard $i$ is being consumed, where $d$ is the
-prefetch depth.
+Because the epoch permutation is fixed at the start of each epoch, the order in which the shards will be consumed is known in advance. \pads{} uses this information to stage future shards before they are required. While shard $i$ is being consumed by the training process, a background staging thread copies a future shard $i+d$ from the shared filesystem to node-local scratch, where $d$ denotes the prefetch depth. The objective is to overlap the transfer from shared storage with model computation so that the required shard is already available locally when the training process reaches it.
 
-The prefetch depth $d$ is not a hyperparameter supplied by the user but is derived
-from the measured timings.
-Let $t_{\text{stage}}$ be the measured time to copy one shard to scratch and
-$t_{\text{consume}}$ the measured time to consume one shard's worth of samples.
-The depth is set to
+The prefetch depth $d$ is not a hyperparameter supplied by the user. Instead, it is derived automatically from runtime measurements. Let $t_{\text{stage}}$ denote the measured time required to copy one shard from the shared filesystem to node-local scratch, and let $t_{\text{consume}}$ denote the measured time required by the training process to consume one shard's worth of samples. The depth is set to
 %
 \begin{equation}
-  d = \min\!\left( \left\lceil \frac{t_{\text{stage}}}{t_{\text{consume}}} \right\rceil + 1,
-                   \; d_{\max} \right),
-  \qquad
-  d_{\max} = \left\lfloor \frac{C_{\text{scratch}}}{s_{\text{shard}}} \right\rfloor
+d = \min!\left(
+\left\lceil
+\frac{t_{\text{stage}}}{t_{\text{consume}}}
+\right\rceil + 1,
+; d_{\max}
+\right),
+\qquad
+d_{\max} =
+\left\lfloor
+\frac{C_{\text{scratch}}}{s_{\text{shard}}}
+\right\rfloor .
 \end{equation}
 %
-where $C_{\text{scratch}}$ is the free capacity of node-local scratch and
-$s_{\text{shard}}$ the shard size.
-The first term ensures the transfer is covered by the consumption of the shards
-ahead of it; the $+1$ provides one shard of slack against jitter in
-$t_{\text{stage}}$, which on a shared filesystem is non-stationary.
-The second term is the feasibility constraint: no more than $d_{\max}$ shards may be
-resident at once.
+Here, the ratio $t_{\text{stage}}/t_{\text{consume}}$ estimates the number of shard-consumption intervals required to cover the transfer time of one shard. For example, if staging a shard takes $12$ seconds while consuming a shard takes $5$ seconds, the transfer spans approximately $12/5 = 2.4$ consumption intervals. Rounding this value upward gives three shards, and the additional $+1$ provides one shard of safety margin, resulting in a prefetch depth of four. This additional shard provides protection against variations in $t_{\text{stage}}$, which may occur on a shared filesystem due to changing system load and I/O contention.
 
-This is the mechanism by which RQ4 - can prefetch depth be auto-tuned from
-measured timings? - is answered affirmatively by construction, and it is what
-distinguishes \pads{} from WebDataset, which streams shards at a fixed, statically
-configured depth without reference to whether that depth is sufficient to hide the
-transfer.
+The calculated depth is additionally constrained by the available node-local scratch capacity. Let $C_{\text{scratch}}$ denote the free capacity of node-local scratch and $s_{\text{shard}}$ the size of a single shard. The resulting value
+%
+\[
+d_{\max} =
+\left\lfloor
+\frac{C_{\text{scratch}}}{s_{\text{shard}}}
+\right\rfloor
+\]
+%
+represents the maximum number of shards that can be stored in scratch at the same time. The final prefetch depth is therefore the smaller of the depth required to hide the measured staging latency and the number of shards that can physically fit in the available scratch space.
+
+This mechanism allows the prefetch depth to adapt automatically to the observed storage and training performance. If $t_{\text{stage}}$ increases, shards must be requested further in advance and the required prefetch depth increases. Conversely, if $t_{\text{consume}}$ increases, the staging thread has more time to complete a transfer while existing shards are being consumed, reducing the required prefetch depth. The prefetch depth is therefore determined by measured system behaviour rather than by a manually selected value.
+
+This is the mechanism by which RQ4---can prefetch depth be auto-tuned from measured timings?---is answered affirmatively by construction. It also distinguishes \pads{} from WebDataset, where shards are streamed using a fixed, statically configured prefetch depth without determining whether that depth is sufficient to hide the measured transfer latency.
 
 \paragraph{Eviction.}
-Staged shards are evicted in consumption order once fully consumed, maintaining at
-most $d$ resident shards.
-Because consumption order is known, eviction is exact and requires no recency
-heuristic.
+Once a staged shard has been fully consumed, its local copy is removed from node-local scratch to make space for subsequent shards. Since the shard consumption order is known in advance, \pads{} can determine exactly when a shard is no longer required and evict it immediately after consumption. This maintains at most $d$ resident shards and avoids the need for recency-based cache-management heuristics such as least-recently-used (LRU) eviction.
 
 \subsection{Metrics captured}
 
