@@ -1,30 +1,31 @@
 %% ============================================================================
-\section{Archaeological Contributions and Limitations}
+\section{Discussion}
 \label{ch:archaeology}
 %% ============================================================================
 
-This thesis is an engineering contribution: it concerns how training data
+This chapter discusses the archaeological implications and evidential limits of
+the engineering results. The thesis concerns how training data
 reaches a machine learning model on a shared supercomputer, not how
 archaeological sites are identified. That framing is deliberate, but it leaves
 a question that a reader from archaeology is entitled to ask directly -- what,
 if anything, does this work contribute to archaeological practice, and how far
 can its results be trusted?
 
-This section answers that in plain terms. Technical vocabulary is defined where
+The discussion answers that question in precise terms. Technical vocabulary is defined where
 it is unavoidable, and the boundary between what has been demonstrated here,
 what has been demonstrated by others, and what remains untested is stated
 explicitly rather than left to inference.
 
-\subsection{Transfer to other regions}
+\subsection{Regional transferability}
 \label{sec:arch-regions}
 
-\paragraph{The short answer.}
-A model trained on tells in the southern Mesopotamian floodplain will not work
-well elsewhere without being shown local examples first. It is, however,
-comparatively cheap to adapt, and adaptation to a nearby region has already
-been demonstrated by others using the same underlying model.
+\subsubsection{Scope of transfer}
+No evidence in this thesis supports direct deployment of a model trained on the
+southern Mesopotamian floodplain in a different region. Published work instead
+supports adaptation with local examples, including retraining the same underlying
+model for the Abu Ghraib district~\cite{Pistola25}.
 
-\paragraph{Why a trained model does not simply transfer.}
+\subsubsection{Sources of domain shift}
 The model does not learn the concept ``tell''. It learns a statistical
 association between patterns of colour, tone and texture in an image and the
 outlines an archaeologist drew around them. The qualitative analysis in
@@ -36,7 +37,7 @@ degrades performance. Different soil chemistry, vegetation cover, land-use
 regime, season of image capture, preservation state, or satellite sensor all
 change it.
 
-\paragraph{Why adaptation is nonetheless cheap.}
+\subsubsection{Adaptation through transfer learning}
 Adapting an existing model to a new region does not mean starting over. The
 standard practice, used throughout this thesis, is \emph{transfer learning}: a
 model already trained on a very large general image collection is used as a
@@ -57,7 +58,7 @@ regions: Soroush et al.~\cite{Soroush20} in the Kurdistan Region of Iraq, and
 Vadineanu et al.~\cite{Vadineanu24} on mounded settlements in Upper
 Mesopotamia.
 
-\paragraph{What actually limits adaptation.}
+\subsubsection{Annotation as the binding constraint}
 The binding constraint is not computing power and not model design. It is
 annotated examples: someone must have already outlined a reasonable number of
 known sites in the new region for the model to learn from. In a region with a
@@ -70,12 +71,15 @@ It is worth being clear that no cross-region transfer experiment was run in
 this thesis. The claim above rests on the published results cited, not on
 evidence collected here.
 
-\subsection{Transfer to other kinds of structure}
+\subsection{Transferability across archaeological feature classes}
 \label{sec:arch-structures}
 
-\paragraph{The short answer.}
-Yes, and this is better established than regional transfer. Nothing in the
-method is specific to mounded settlements.
+\subsubsection{Scope across feature classes}
+Transfer across feature classes is technically possible because the evaluated
+architectures are general-purpose segmentation models rather than algorithms
+whose structure encodes mounded settlements~\cite{Fan20,Chen18,Xie21}. Evidence
+for performance on a new feature class nevertheless requires new annotations and
+evaluation; architectural generality alone is not empirical validation.
 
 The models used here are general-purpose image segmentation networks. They were
 not designed for archaeology; they were designed to outline objects in
@@ -88,7 +92,7 @@ Eurasian steppe~\cite{Caspari19}; stone burial mounds (kurgans) in the Altai
 Mountains~\cite{Chen21}; and archaeological topography in airborne laser
 scanning data, which is not satellite photography at all~\cite{Trier19,Guyot21}.
 
-\paragraph{What makes a feature easy or hard.}
+\subsubsection{Visibility, scale, and difficulty}
 Two properties matter more than the choice of model. First, the feature must be
 visible in the sensor being used -- a buried structure with no surface
 expression will not be found in satellite imagery regardless of the method.
@@ -102,14 +106,14 @@ small, subtle, or visible only under particular seasonal or lighting conditions
 should be expected to perform considerably worse, and the size effect above
 should be treated as a warning rather than a footnote.
 
-\subsection{How reliable are these findings?}
+\subsection{Reliability and interpretation}
 \label{sec:arch-reliability}
 
-This subsection concerns the accuracy figures. It is the part of this section
-most likely to matter to a reviewer, and it contains a caveat that is easy to
-miss when reading the headline number.
+Reliability depends on distinguishing the aggregate accuracy statistic from its
+per-site distribution and on separating repeated model evaluation from the
+single-run systems measurements.
 
-\paragraph{What the headline number means, and what it does not.}
+\subsubsection{Interpretation of aggregate IoU}
 This thesis reproduces the reference study's reported accuracy, reaching
 $72.8$--$73.5\%$ against a published $74.17\%$
 (Section~\ref{sec:repro-closure}). That figure is an
@@ -126,7 +130,7 @@ no site. Those images contribute perfect scores to the average without any
 outline having been drawn (Section~\ref{sec:repro-metric} quantifies the effect
 of this convention).
 
-\paragraph{The per-site picture.}
+\subsubsection{Per-site error distribution}
 Scoring only the 466 test images that do contain a site gives a much more
 uneven result. The median score per image is $0.165$, $0.053$ and $0.000$ for
 the three architectures -- that is, on more than half of individual sites, at
@@ -142,7 +146,7 @@ outline on a third of sites is a real result -- but it is a materially
 different claim from ``73\% accurate'', and it should not be reported as the
 latter.
 
-\paragraph{Reliability of the engineering findings.}
+\subsubsection{Reliability of systems measurements}
 The performance results in Sections~\ref{ch:results} and~\ref{ch:ablation} come
 with a limitation stated plainly there: each configuration was run once, not
 repeated. On a shared supercomputer, timing measurements vary with whatever
@@ -152,31 +156,31 @@ than as precisely established differences. The accuracy figures are on firmer
 ground, having been measured over ten independent evaluation passes with very
 close agreement between them.
 
-\subsection{How the findings were verified}
+\subsection{Verification strategy}
 \label{sec:arch-verification}
 
 Three checks were applied, and it is important to be clear about what each one
 does and does not establish.
 
-\paragraph{Held-out data.}
+\subsubsection{Held-out evaluation}
 The models were evaluated on 589 images set aside before training and never
 used to adjust the model. This guards against the most basic failure, in which
 a model appears accurate merely because it has memorised the examples it was
 trained on.
 
-\paragraph{Repeated evaluation.}
+\subsubsection{Repeated evaluation}
 Because the evaluation procedure involves a random crop of each image, the
 whole test set was evaluated ten times independently. Agreement between those
 ten runs was close (a spread of $0.003$--$0.004$), so the reported figure is not
 an artefact of one lucky pass.
 
-\paragraph{Independent reproduction.}
+\subsubsection{Independent reproduction}
 The pipeline was rebuilt from scratch and checked against an independently
 published result~\cite{Casini23}, landing within $1$--$1.4$ percentage points.
 This is the strongest of the three checks, because it tests the whole apparatus
 against a number produced by different people using different code.
 
-\paragraph{What none of this establishes.}
+\subsubsection{Limits of verification}
 Every check above compares the model's output against the \emph{annotations} --
 the outlines drawn by archaeologists in the source catalogue. It does not
 compare them against the ground. A model that agrees perfectly with the
@@ -194,12 +198,12 @@ using the CORONA-trained variant of the same model. Field verification is the
 only test that can distinguish a genuine discovery from an agreement with an
 imperfect catalogue, and it lies outside the scope of this work.
 
-\subsection{Can archaeological features be mistaken for other features?}
+\subsection{Error sources and feature confusion}
 \label{sec:arch-confusion}
 
 Yes, in both directions, and this thesis can quantify how often.
 
-\paragraph{Mistaking something else for a site.}
+\subsubsection{False-positive detections}
 Of the 123 test images containing no archaeological site, 108 were correctly
 rejected by all three models. Spurious detections appeared on $5.7\%$
 (DeepLabV3+), $7.3\%$ (MA-Net) and $8.9\%$ (SegFormer) of them. Since the
@@ -212,14 +216,14 @@ agriculture, flood-prone terrain and rocky hills -- that is, they are hard
 cases by construction, and a roughly 6--9\% false-detection rate on them is a
 meaningful but not disqualifying figure.
 
-\paragraph{Missing a site that is present.}
+\subsubsection{False-negative detections}
 This is the larger error, and it deserves the greater emphasis. Roughly half of
 the images that do contain a site yield almost no useful outline
 (Section~\ref{sec:arch-reliability}), concentrated overwhelmingly among smaller
 sites. A negative result from these models is therefore weak evidence: absence
 of a detection is emphatically not evidence of absence of a site.
 
-\paragraph{The ambiguity is not only the model's.}
+\subsubsection{Annotation ambiguity}
 Some of what is scored as error is disagreement about the annotation rather
 than a mistake in the image analysis. Where a catalogued site is no longer
 visible, the model and the catalogue disagree and the model is recorded as
@@ -227,7 +231,7 @@ wrong. Fiorucci et al.~\cite{Fiorucci22} argue more generally that standard
 detection measures are poorly matched to archaeological objects and propose
 alternatives; the concern applies directly here.
 
-\paragraph{Why this argues for expert review rather than against the method.}
+\subsubsection{Role of expert review}
 The reference study addressed exactly this by placing an archaeologist in the
 loop to adjudicate the model's proposals, which raised site-level detection
 accuracy from roughly 63\% to 80\%~\cite{Casini23}. That is the appropriate
@@ -237,7 +241,7 @@ not an authority on what is there. Verschoof-van der Vaart and
 Lambers~\cite{Verschoof22} make the same argument from the perspective of
 integrating such tools into archaeological practice.
 
-\subsection{What this thesis contributes archaeologically}
+\subsection{Archaeological contribution}
 \label{sec:arch-contribution}
 
 Stated conservatively, the contribution is threefold, and only the third is

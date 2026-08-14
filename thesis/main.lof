@@ -1,9 +1,11 @@
 \babel@toc {english}{}\relax 
 \contentsline {section}{Introduction}{1}{section.1}%
 \contentsline {figure}{\numberline {1}{\ignorespaces Example predictions on held-out test tiles}}{2}{figure.caption.9}%
-\contentsline {figure}{\numberline {2}{\ignorespaces GPU utilisation, RQ3 methods 3--5, all three architectures.\relax }}{18}{figure.caption.34}%
-\contentsline {figure}{\numberline {3}{\ignorespaces GPU utilisation across the prefetch-depth sweep}}{19}{figure.caption.36}%
-\contentsline {figure}{\numberline {4}{\ignorespaces Measured ratio against the full-epoch ground truth}}{22}{figure.caption.41}%
-\contentsline {figure}{\numberline {5}{\ignorespaces GPU utilisation by policy component, all three architectures.\relax }}{24}{figure.caption.43}%
-\contentsline {figure}{\numberline {6}{\ignorespaces GPU utilisation vs.\ scratch-capacity budget}}{25}{figure.caption.45}%
-\contentsline {figure}{\numberline {7}{\ignorespaces Measured ratio vs.\ decision threshold}}{26}{figure.caption.47}%
+\contentsline {figure}{\numberline {2}{\ignorespaces Scope and construction of the segmentation dataset}}{7}{figure.caption.14}%
+\contentsline {figure}{\numberline {3}{\ignorespaces Architectural paths of the three evaluated models, summarised from the primary architecture papers~\cite {Fan20,Chen18,Xie21}.}}{10}{figure.caption.18}%
+\contentsline {figure}{\numberline {4}{\ignorespaces GPU utilisation, RQ3 methods 3--5, all three architectures.}}{19}{figure.caption.37}%
+\contentsline {figure}{\numberline {5}{\ignorespaces GPU utilisation across the prefetch-depth sweep}}{20}{figure.caption.39}%
+\contentsline {figure}{\numberline {6}{\ignorespaces Measured ratio against the full-epoch ground truth}}{22}{figure.caption.44}%
+\contentsline {figure}{\numberline {7}{\ignorespaces GPU utilisation by policy component, all three architectures.}}{24}{figure.caption.46}%
+\contentsline {figure}{\numberline {8}{\ignorespaces GPU utilisation vs.\ scratch-capacity budget}}{25}{figure.caption.48}%
+\contentsline {figure}{\numberline {9}{\ignorespaces Measured ratio vs.\ decision threshold}}{26}{figure.caption.50}%

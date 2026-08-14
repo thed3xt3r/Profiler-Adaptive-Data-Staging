@@ -53,7 +53,7 @@ training set, the authors applied two filtering passes before image generation:
     sites of unknown size or imprecise location.
 \end{enumerate}
 
-Image generation was performed in QGIS.
+Image generation was performed in QGIS~\cite{QGIS}.
 For each retained site, a Python script exported a square of side $L$ centred on the
 site centroid containing only Bing Maps satellite imagery, accessed through the
 QuickMapService plugin.
@@ -86,6 +86,9 @@ training partition randomly reserved as a validation set.
 A CORONA-augmented variant also exists, in which declassified historical satellite
 imagery is imported into QGIS and cropped identically to the Bing tiles, giving a
 second input channel group.
+CORONA was a United States photographic-reconnaissance programme whose imagery was
+declassified in 1995; the USGS archive covers acquisitions from 1960--1972 and
+notes that the scanned products are not supplied with geocorrection~\cite{USGSCorona}.
 Because CORONA was used only as a complement in the original work, sites destroyed
 after the 1970s were excluded from that analysis.
 
@@ -96,6 +99,45 @@ variants and therefore the least favourable to a data-staging argument - a
 pipeline that is I/O-bound on 1k tiles will be at least as I/O-bound on 2k tiles or
 on the CORONA-augmented input.
 Section~\ref{ch:ablation} revisits the larger input configurations.
+
+\begin{figure}[!ht]
+\centering
+\fbox{\begin{minipage}{0.90\linewidth}\centering
+\textbf{Floodplains Project survey area: approximately 66,000 km$^2$}\\[4pt]
+$4,934$ catalogued site polygons
+$\longrightarrow$ filtering and corpus construction
+$\longrightarrow$ $3,870$ site-bearing tiles\\[4pt]
+$+\;1,155$ archaeologist-selected empty tiles
+$\longrightarrow$ $5,025$ RGB--mask pairs\\[4pt]
+$\longrightarrow$ stratified train/validation/test partitions
+\end{minipage}}
+\caption[Scope and construction of the segmentation dataset]{Scope and
+construction of the dataset used in this thesis. Counts and filtering rules are
+reported by Casini et al.~\cite{Casini23}; the diagram distinguishes the regional
+catalogue from the image--mask pairs actually presented to the models.}
+\label{fig:dataset-scope}
+\end{figure}
+
+\begin{table}[!ht]
+\centering
+\begin{tabularx}{\linewidth}{lL}
+\toprule
+Property & Value used in the main experiments \\
+\midrule
+Geographic scope & Southern Mesopotamian floodplain; source survey area approximately
+66,000 km$^2$~\cite{Casini23} \\
+Task & Binary semantic segmentation of tell pixels \\
+Samples & 5,025 paired RGB images and masks: 3,870 site-bearing and 1,155 empty \\
+Spatial configuration & 1,000 m square exported at 1,024 px, then downsampled/cropped \\
+Partitioning & 90\% train / 10\% held-out test; 10\% of training reserved for validation \\
+Primary input & Bing satellite imagery; CORONA and 2 km variants excluded from main runs \\
+Storage layout & 5,025 image files plus 5,025 mask files on shared GPFS \\
+\bottomrule
+\end{tabularx}
+\caption{Key properties of the dataset and the Bing 1k variant used throughout
+the primary evaluation~\cite{Casini23}.}
+\label{tab:dataset-overview}
+\end{table}
 
 \subsubsection{Class imbalance}
 
@@ -122,6 +164,27 @@ not specifically in terms of this dataset's class split.
 It is also, importantly for this thesis, the reason the workload is decode-heavy
 relative to its useful signal: a substantial fraction of the bytes read from the
 filesystem contribute nothing but negative pixels.
+
+For a pixel with target $y\in\{0,1\}$ and predicted foreground probability $p$,
+binary cross-entropy is
+\begin{equation}
+  \mathcal{L}_{\mathrm{BCE}}=-\left[y\log p+(1-y)\log(1-p)\right].
+\end{equation}
+Writing $p_t=p$ when $y=1$ and $p_t=1-p$ otherwise, focal loss applies a
+modulating factor to easy examples~\cite{Lin17}:
+\begin{equation}
+  \mathcal{L}_{\mathrm{focal}}=-\alpha_t(1-p_t)^{\gamma}\log p_t.
+\end{equation}
+The overlap-based alternatives used in the configuration search are Dice and
+Jaccard losses. For soft prediction vector $\mathbf p$ and binary target
+$\mathbf y$, with $\varepsilon>0$ for numerical stability, they are
+\begin{align}
+  \mathcal{L}_{\mathrm{Dice}} &= 1-
+  \frac{2\sum_i p_i y_i+\varepsilon}{\sum_i p_i+\sum_i y_i+\varepsilon},\\
+  \mathcal{L}_{\mathrm{Jaccard}} &= 1-
+  \frac{\sum_i p_i y_i+\varepsilon}
+  {\sum_i p_i+\sum_i y_i-\sum_i p_i y_i+\varepsilon}.
+\end{align}
 
 \subsubsection{Evaluation metrics}
 
@@ -249,6 +312,30 @@ attention-augmented CNN, and a transformer.
 All three were trained under an identical data pipeline so that pipeline effects can
 be isolated from architectural effects.
 
+A convolutional neural network (CNN) learns local filters whose receptive field
+grows with depth; an encoder reduces spatial resolution to obtain contextual
+features, while a decoder upsamples those features and combines them with
+fine-resolution information.  A vision transformer instead represents the image
+as a sequence or hierarchy of patches and uses self-attention to relate content
+across spatial positions~\cite{Vaswani17,Xie21}.  The three models instantiate
+these principles differently (Figure~\ref{fig:model-architectures}).
+
+\begin{figure}[!ht]
+\centering
+\fbox{\begin{minipage}{0.94\linewidth}\small
+\textbf{MA-Net:} EfficientNet-B3 encoder $\rightarrow$ multi-scale feature maps
+$\rightarrow$ position/block attention $\rightarrow$ U-Net-style decoder.\\[3pt]
+\textbf{DeepLabV3+:} ResNet-50 encoder $\rightarrow$ atrous spatial pyramid
+pooling at multiple dilation rates $\rightarrow$ boundary-refining decoder.\\[3pt]
+\textbf{SegFormer:} hierarchical overlapping patch encoder $\rightarrow$
+multi-scale transformer features without positional encoding $\rightarrow$
+lightweight all-MLP decoder.
+\end{minipage}}
+\caption{Architectural paths of the three evaluated models, summarised from the
+primary architecture papers~\cite{Fan20,Chen18,Xie21}.}
+\label{fig:model-architectures}
+\end{figure}
+
 \subsubsection{MA-Net}
 
 MA-Net (Multi-scale Attention Network)~\cite{Fan20} extends the U-Net
@@ -283,11 +370,11 @@ HuggingFace \code{transformers} library.
 \subsubsection{Measured characteristics (Bing 1k, default loader)}
 \label{sec:measured-baseline}
 
-Table~\ref{tab:baseline-default} reports measurements on the Iris cluster on a
-single V100 with the baseline PyTorch \code{DataLoader} at default settings, and
-Table~\ref{tab:baseline-tuned} the same with loader parameters tuned
-(\code{num\_workers=4}, \code{pin\_memory=True}). Section~\ref{ch:results},
-Table~\ref{tab:rq1-loader-util} reports the same underlying runs.
+Measurements were collected on the Iris cluster with one V100 and the baseline
+PyTorch \code{DataLoader} at default settings (Table~\ref{tab:baseline-default}),
+and with loader parameters tuned (Table~\ref{tab:baseline-tuned})
+(\code{num\_workers=4}, \code{pin\_memory=True}). The same underlying runs are
+reported with the RQ1 comparison (Table~\ref{tab:rq1-loader-util}).
 
 \begin{table}[!ht]
 \centering
@@ -338,9 +425,9 @@ accuracy for the throughput gains reported here.
 
 \subsection{Hardware and software environment}
 
-All primary experiments were run on the Iris cluster at the University of
-Luxembourg, on GPU nodes equipped with NVIDIA V100 GPUs, scheduled via
-Slurm.
+All primary experiments were run on the University of Luxembourg's Iris cluster,
+whose facility architecture is documented by Varrette et al.~\cite{Varrette22},
+on GPU nodes equipped with NVIDIA V100 GPUs and scheduled via Slurm.
 Storage is provided by a shared GPFS filesystem, with node-local scratch available
 for staging.
 The software stack is containerised with Apptainer to guarantee a reproducible
