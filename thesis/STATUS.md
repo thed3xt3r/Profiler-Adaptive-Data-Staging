@@ -9,7 +9,7 @@ pdflatex -interaction=nonstopmode -halt-on-error main.tex
 pdflatex -interaction=nonstopmode -halt-on-error main.tex
 ```
 
-The resulting `main.pdf` is 61 pages. The final build reports no LaTeX errors,
+The resulting `main.pdf` is 63 pages. The final build reports no LaTeX errors,
 undefined citations, or undefined references. Representative pages containing
 the new dataset overview, mathematical definitions, architecture diagram,
 discussion structure, and appendices were rendered to images and visually
@@ -32,7 +32,8 @@ checked.
   scope subsection was moved into limitations, and Chapter 9 now has a
   dedicated Discussion section with consistently numbered subsections.
 - Figure and table references were changed to passive prose where applicable,
-  and source-level typo/placeholder/reference checks were performed.
+  literal Markdown bold markers were removed from result tables, and
+  source-level typo/placeholder/reference checks were performed.
 
 ## Items requiring author confirmation
 
