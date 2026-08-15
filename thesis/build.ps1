@@ -30,6 +30,8 @@ $env:MIKTEX_ENABLE_INSTALLER = "t"
 
 if ($Clean) {
     $ext = @("aux","bbl","blg","log","out","toc","lof","lot","fls","fdb_latexmk","synctex.gz")
+    # (Remove-ListFiles below covers the subset that a stale-state build needs;
+    #  -Clean additionally drops the bibliography and log.)
     foreach ($e in $ext) {
         Remove-Item -LiteralPath "$main.$e" -Force -ErrorAction SilentlyContinue
     }
@@ -43,8 +45,30 @@ function Invoke-Pdflatex {
     & pdflatex -interaction=nonstopmode "$main.tex" | Out-Null
 }
 
+# pdflatex reads main.toc/.lof/.lot from the PREVIOUS run before it rewrites
+# them. If those files were produced by a structurally different version of the
+# document -- e.g. a report-class ancestor whose \contentsline{chapter} entries
+# hit an article-class main.tex, where \l@chapter is undefined and so expands to
+# \relax, dropping the table of contents into horizontal mode -- pass 1 fails
+# with a cascade of "perhaps a missing \item". The state is self-inflicted and
+# recoverable: drop the list files and run the pass again.
+function Remove-ListFiles {
+    foreach ($e in @("aux","toc","lof","lot","out")) {
+        Remove-Item -LiteralPath "$main.$e" -Force -ErrorAction SilentlyContinue
+    }
+    Get-ChildItem chapters,frontmatter -Filter "*.aux" -ErrorAction SilentlyContinue |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
+}
+
 Write-Output "pass 1 ..."
 Invoke-Pdflatex
+
+$stale = @(Select-String -Path "$main.log" -Pattern "perhaps a missing" -SimpleMatch -ErrorAction SilentlyContinue)
+if ($stale.Count -gt 0) {
+    Write-Output "  stale .toc/.aux detected - discarding and repeating pass 1 ..."
+    Remove-ListFiles
+    Invoke-Pdflatex
+}
 
 if (-not $Quick) {
     Write-Output "bibtex ..."
