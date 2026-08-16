@@ -88,8 +88,9 @@ rather than merely improving on them.
     profiler selected \code{loose} in every method-5 run in
     Table~\ref{tab:rq3-endtoend}. Section~\ref{sec:res-profiler-bias} traces
     this to a specific, quantified, and now-corrected measurement defect in the
-    profiler rather than a limitation of the staging mechanism itself, which
-    Table~\ref{tab:ablation-components} shows does help when actually invoked.
+    profiler rather than a limitation of the staging mechanism itself; a benefit
+    is observed when that mechanism is actually invoked
+    (Table~\ref{tab:ablation-components}).
   \item[RQ4 - Can prefetch depth be auto-tuned?]
     No, not by the present formula: every auto-tuned depth landed at
     $d\approx170$--$235$ (Table~\ref{tab:rq4-auto}), one to two orders of
@@ -99,37 +100,7 @@ rather than merely improving on them.
     magnitude between repeated measurements on identical hardware.
 \end{description}
 
-\subsection{What this work does not claim}
-
-Three limits are worth stating plainly, because the value of the contribution
-depends on where its boundary lies.
-
-First, the result is specific to a corpus of many small files on a contended shared
-filesystem.
-A workload whose data already resides on fast node-local storage, or whose samples
-are large enough that per-file overhead amortises, has no bottleneck for \pads{} to
-remove; the loader is designed to detect exactly this and degrade to the ordinary
-\code{DataLoader}, and reporting that it does so is part of the claim rather than an
-admission against it.
-
-Second, \pads{} optimises the data path and does not improve the model.
-Segmentation quality is treated throughout as a constraint to be preserved rather
-than an objective to be advanced, and any IoU movement beyond the reference standard
-deviation is treated as a regression to be explained.
-
-Third, the accuracy figures underlying the policy comparisons are a correctness
-check, not a measure of what these models can achieve. They are depressed by two
-identified defects specific to the main pipeline -- a metric-averaging
-convention and a flip-augmentation error (Appendix~\ref{app:defects}) -- which
-apply uniformly to every run and therefore leave the comparisons between
-policies valid while making the absolute values unrepresentative. The workload's
-actual accuracy ceiling is established separately, by a full-protocol
-reproduction reaching within $1$--$1.4$ points of the published reference figure
-(Appendix~\ref{app:reproduction}), and any accuracy claim in this thesis should
-be read against that reproduction rather than against the main pipeline's
-uncorrected numbers.
-
-% \subsection{Closing remarks}
+\subsection{Closing remarks}
 
 % The broader observation this work supports is methodological. Effort in deep
 % learning for remote sensing is conventionally directed at the model, and the

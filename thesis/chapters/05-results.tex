@@ -167,8 +167,8 @@ Architecture & \multicolumn{4}{c}{GPU util.\ (\%) at fixed depth $d$} \\
 & $d=1$ & $d=2$ & $d=4$ & $d=8$ \\
 \midrule
 MA-Net     & 82.6 & 82.4 & 76.9 & 77.9 \\
-DeepLabV3+ & 50.3 & 60.9 & \textbf{**65.9**} & 47.3 \\
-SegFormer  & 25.1 & 39.3 & \textbf{**48.0**} & 39.4 \\
+DeepLabV3+ & 50.3 & 60.9 & \textbf{65.9} & 47.3 \\
+SegFormer  & 25.1 & 39.3 & \textbf{48.0} & 39.4 \\
 \bottomrule
 \end{tabular}
 \caption[GPU utilisation at fixed prefetch depths]{GPU utilisation across the fixed prefetch-depth sweep. Increasing the depth does not produce a monotonic improvement for DeepLabV3+ or SegFormer: both architectures reach their highest utilisation at $d=4$ before declining at $d=8$. MA-Net behaves differently, remaining comparatively flat across the sweep and maintaining high GPU utilisation regardless of the selected staging depth.}
@@ -240,11 +240,11 @@ The results from RQ3 and RQ4 reveal the same behaviour: \pads{}'s adaptive profi
 Run & \Tdata{} (s) & \Tgpu{} (s) & Ratio & Policy chosen \\
 \midrule
 DeepLabV3+, 8-batch (default) & 0.783 & 0.613 & 1.28 & loose \\
-DeepLabV3+, 147-batch (full epoch) & 0.808 & \textbf{**0.100**} & \textbf{**8.07**} & shard \\
+DeepLabV3+, 147-batch (full epoch) & 0.808 & \textbf{0.100} & \textbf{8.07} & shard \\
 MA-Net, 8-batch (default) & 0.873 & 0.713 & 1.22 & loose \\
-MA-Net, 147-batch (full epoch) & 0.874 & \textbf{**0.093**} & \textbf{**9.41**} & shard \\
+MA-Net, 147-batch (full epoch) & 0.874 & \textbf{0.093} & \textbf{9.41} & shard \\
 SegFormer, 8-batch (default) & 0.752 & 0.655 & 1.15 & loose \\
-SegFormer, 147-batch (full epoch) & 0.841 & \textbf{**0.062**} & \textbf{**13.5**} & shard \\
+SegFormer, 147-batch (full epoch) & 0.841 & \textbf{0.062} & \textbf{13.5} & shard \\
 \bottomrule
 \end{tabular}
 \caption[8-batch probe vs.\ full-epoch measurement]{Comparison between the original 8-batch probe and a full-epoch measurement for the same architecture and configuration. \Tdata{} remains approximately unchanged, whereas \Tgpu{} decreases by 6--10$\times$ when measured over a complete epoch rather than only the first 8 batches.}
@@ -271,9 +271,9 @@ To test this, \code{profile\_data\_pipeline()} was extended with a \code{discard
 \toprule
 Architecture & 8 batches & 16 batches & 32 batches & 64 batches & 143 (full) \\
 \midrule
-DeepLabV3+ & 10.62 (+2.7\%) & 10.55 (+2.0\%) & 10.55 (+2.0\%) & 10.46 (+1.2\%) & \textbf{**10.33**} \\
-SegFormer  & 20.14 ($-$0.5\%) & 20.39 (+0.7\%) & 20.57 (+1.6\%) & 20.56 (+1.6\%) & \textbf{**20.24**} \\
-MA-Net     & 12.18 (+1.6\%) & 12.20 (+1.8\%) & 12.23 (+2.0\%) & 12.22 (+1.9\%) & \textbf{**11.99**} \\
+DeepLabV3+ & 10.62 (+2.7\%) & 10.55 (+2.0\%) & 10.55 (+2.0\%) & 10.46 (+1.2\%) & \textbf{10.33} \\
+SegFormer  & 20.14 ($-$0.5\%) & 20.39 (+0.7\%) & 20.57 (+1.6\%) & 20.56 (+1.6\%) & \textbf{20.24} \\
+MA-Net     & 12.18 (+1.6\%) & 12.20 (+1.8\%) & 12.23 (+2.0\%) & 12.22 (+1.9\%) & \textbf{11.99} \\
 \bottomrule
 \end{tabular}
 \caption[Measured ratio by post-discard window size]{Measured \Tdata{}/\Tgpu{} ratio by post-discard window size after discarding the first 5 batches, compared with each architecture's own 143-batch full-epoch measurement as ground truth. Percentages indicate deviation from the corresponding full-epoch measurement.}

@@ -5,7 +5,21 @@
 
 \subsection{Limitations}
 
-\paragraph{A single filesystem and a single cluster.}
+\subsubsection{Scope of the claims}
+
+Three boundaries constrain the contribution. First, the measured result concerns
+a corpus of many small files on a contended shared filesystem; a workload already
+resident on fast node-local storage, or composed of sufficiently large samples,
+need not benefit. Second, \pads{} optimises the data path rather than the model:
+segmentation quality is a constraint, not an optimisation target. Third, the
+main-pipeline accuracy values are correctness checks rather than estimates of the
+architectures' attainable accuracy. Two shared defects---the reduction convention
+and flip augmentation---depress those values without invalidating within-pipeline
+policy comparisons (Appendix~\ref{app:defects}). Reference-comparable capability
+is established separately by the full-protocol reproduction
+(Appendix~\ref{app:reproduction}).
+
+\subsubsection{A single filesystem and cluster}
 All primary measurements were taken on GPFS on the Iris cluster.
 The many-small-file pathology is general to parallel filesystems, but its magnitude
 is not: Lustre, BeeGFS and object stores differ in metadata architecture, and the
@@ -14,8 +28,7 @@ The classification rules are expressed as ratios rather than absolute times
 specifically so that they might transfer, but that transfer is asserted rather than
 demonstrated.
 
-\paragraph{Contention is uncontrolled, and this evaluation does not estimate its
-own variance.}
+\subsubsection{Uncontrolled contention and unestimated variance}
 Read latency on a shared filesystem depends on concurrent jobs. The intended
 protocol (Section~\ref{ch:methodology}, ``Experimental protocol'') called for
 repeating each configuration and reporting mean $\pm$ standard deviation for
@@ -40,7 +53,7 @@ direct methodological limitation of this evaluation as it stands. An
 adversarial evaluation - deliberately co-scheduling I/O-heavy jobs - would
 strengthen the claim further still and was not undertaken here either.
 
-\paragraph{One corpus.}
+\subsubsection{One corpus}
 The design generalises to any workload with a fixed epoch permutation over many
 small files, but it has been evaluated on one dataset of approximately 1~GB.
 A corpus one or two orders of magnitude larger - where staging cannot be a
@@ -48,14 +61,14 @@ full copy under any policy - is where the adaptivity should matter most and wher
 it remains untested outside the synthetic capacity constraint of
 Section~\ref{sec:ablation-capacity}.
 
-\paragraph{Single-node scope.}
+\subsubsection{Single-node scope}
 \pads{} stages to node-local scratch for a single training process.
 Multi-node distributed training raises questions the present design does not
 address: whether shards should be partitioned across ranks or replicated, how
 staging interacts with a distributed sampler, and whether one rank's staging
 traffic degrades another's read latency.
 
-\paragraph{The classifier is a rule set.}
+\subsubsection{Rule-based classification}
 Bottleneck classification uses a small number of hand-chosen thresholds.
 This was a deliberate choice - an inspectable rule set is auditable and its
 failures are diagnosable, which a learned policy is not - but it means the
@@ -65,7 +78,7 @@ the concern.
 
 \subsection{Future work}
 
-\paragraph{Decode offload.}
+\subsubsection{Decode offload}
 The classifier can already detect the case in which \Tdecode{} dominates, but its
 only response is to raise the worker count.
 GPU-side decode~\cite{DALI} or a cache of decoded, pre-augmented tensors would give
@@ -73,14 +86,14 @@ it a substantive action in that regime.
 The trade-off is memory footprint against decode cost, and the profiler is already
 measuring the quantities needed to make that choice.
 
-\paragraph{Cross-job coordination.}
+\subsubsection{Cross-job coordination}
 On a shared cluster, several jobs frequently train on the same corpus.
 Mohan et al.~\cite{Mohan21} show substantial gains from coordinating caching and
 eliminating redundant preprocessing across concurrent jobs.
 Because \pads{} already materialises shards on node-local scratch, extending it to
 publish and reuse staged shards across co-scheduled jobs is a natural next step.
 
-\paragraph{Online rather than one-shot adaptation.}
+\subsubsection{Online rather than one-shot adaptation}
 The current design profiles once, at the start of the run, and commits.
 Since contention varies over the lifetime of a job, periodic re-profiling with
 hysteresis - re-evaluating the policy every $N$ epochs, and switching only on a
@@ -111,7 +124,7 @@ there in the way it was for \Tgpu{}; whether it helps at all, and if not what a
 principled correction for that specific signal looks like, is an open,
 directly testable question left to future work.
 
-\paragraph{Revisiting the accuracy question.}
+\subsubsection{Revisiting segmentation accuracy}
 Two findings from the reproduction bear on segmentation quality rather than
 throughput and were not pursued here.
 The first is that per-image IoU is strongly monotonic in the fraction of the crop
@@ -124,9 +137,12 @@ sensitive to batch size~\cite{Wu18} would make this workload substantially more
 reproducible outside a cluster.
 Neither is a data-staging question, but both affect who can reproduce this work.
 
-\paragraph{Beyond archaeology.}
+\subsubsection{Transfer beyond archaeology}
 The workload characteristics that motivate \pads{} - many small paired files, a
 fixed permutation, a corpus that may or may not fit node-local scratch - are
 common across remote sensing, medical imaging and microscopy.
 Evaluating on a second domain would establish whether the contribution is about this
 dataset or about a class of pipelines.
+This chapter consolidates the limits of the evidence before identifying extensions
+that follow directly from the measured failure modes. It therefore separates what
+the evaluation supports from what remains a research hypothesis.

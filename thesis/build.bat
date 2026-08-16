@@ -15,6 +15,17 @@ echo.
 echo === pass 1 ===
 pdflatex -interaction=nonstopmode -file-line-error main.tex
 
+REM pdflatex reads main.toc/.lof/.lot from the previous run before rewriting
+REM them. If they came from a structurally different version of the document,
+REM pass 1 dies in a cascade of "perhaps a missing \item". Discard and retry.
+findstr /c:"perhaps a missing" main.log >nul
+if not errorlevel 1 (
+  echo   stale .toc/.aux detected - discarding and repeating pass 1 ...
+  del /q main.aux main.toc main.lof main.lot main.out 2>nul
+  del /q chapters\*.aux frontmatter\*.aux 2>nul
+  pdflatex -interaction=nonstopmode -file-line-error main.tex
+)
+
 echo.
 echo === bibtex ===
 bibtex main

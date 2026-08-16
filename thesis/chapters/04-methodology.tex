@@ -347,4 +347,24 @@ architecture and initialisation, batch size, optimiser and learning rate, and th
 augmentation pipeline.
 Each configuration is intended to be repeated multiple times and reported as mean
 $\pm$ standard deviation, because measurements on a shared filesystem are
-non-stationary and a single run is not strong evidence on its own. 
+non-stationary and a single run is not strong evidence on its own. This was not
+achieved for the RQ1--RQ4 and Section~\ref{ch:ablation} evaluation sweep as
+actually run: cluster time constraints meant each of the 91 configurations across
+that sweep was run once ($n=1$), and the GPU-utilisation and IoU figures reported
+in Sections~\ref{ch:results} and~\ref{ch:ablation} should be read as single-run
+point estimates, not as means with an established variance. This is a real
+limitation of the evidence collected, not merely of its reporting, and is stated
+plainly rather than implied by omitted error bars (Section~\ref{ch:futurework}
+returns to it). The one part of this thesis's evaluation that does use repeats is
+the accuracy-reproduction result of Appendix~\ref{app:reproduction}, where each
+architecture's IoU is a mean over ten independent test-set passes with a reported
+range, following the reference study's own protocol; that repetition is over
+test-time crop sampling for a fixed trained model, not over independent training
+runs, and does not substitute for the repeats this section originally specified.
+Jobs are submitted through Slurm with identical resource requests, and where
+possible scheduled on the same node class to control for hardware variation, which
+remains the intended protocol for any repeated version of this evaluation.
+This chapter defines \pads{}, its measured signals, decision rules, staging
+policies, and the protocol used to evaluate them. It follows the workload
+characterisation in Section~\ref{ch:materials} and supplies the mechanisms tested
+in Sections~\ref{ch:results} and~\ref{ch:ablation}.

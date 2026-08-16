@@ -1,5 +1,5 @@
 %% ============================================================================
-\section{Literature Review}
+\section{Related Work}
 \label{ch:literature}
 %% ============================================================================
 This chapter reviews three bodies of literature that provide the foundation for this thesis: semantic segmentation architectures (Section~\ref{sec:lit-seg}), deep learning for archaeological prospection (Section~\ref{sec:lit-arch}), and input-pipeline performance in large-scale deep learning (Section~\ref{sec:lit-io}). The first two establish the application and computational workload considered in this thesis, while the third examines the input-pipeline performance problem and establishes the research gap addressed by \pads{}.
@@ -8,8 +8,14 @@ This chapter reviews three bodies of literature that provide the foundation for 
 \subsection{Semantic segmentation architectures}
 \label{sec:lit-seg}
 
-Semantic segmentation assigns a class label to every pixel in an image, allowing both the category and spatial extent of objects to be identified. A major development in modern semantic segmentation was the introduction of fully convolutional encoder--decoder architectures, with U-Net~\cite{Ronneberger15} becoming one of the most widely adopted examples. Its contracting path progressively extracts contextual features, while the expanding path restores spatial resolution to produce pixel-level predictions. Skip connections between corresponding encoder and decoder stages preserve fine-grained spatial information that may otherwise be lost during downsampling. Originally developed for biomedical image segmentation with limited annotated training data, U-Net also became well suited to remote-sensing applications, where obtaining large quantities of accurately labelled imagery can be similarly difficult and expensive.
-
+Semantic segmentation assigns a class label to every image pixel~\cite{Ronneberger15,Chen18}.
+The modern formulation builds on fully convolutional encoder--decoder networks,
+of which U-Net~\cite{Ronneberger15} is the canonical instance: a contracting path
+captures context, an expanding path recovers spatial resolution, and skip
+connections carry high-frequency detail across the bottleneck.
+U-Net was introduced for biomedical imaging under severe data scarcity, which is
+one reason it transferred well to remote sensing, where annotated corpora are
+similarly small~\cite{Ronneberger15,Casini23}.
 
 Two families extend this design in directions relevant here.
 The first enlarges the effective receptive field without sacrificing resolution.
@@ -45,6 +51,8 @@ decoder to be selected independently and supplies the loss functions used here.
 
 Archaeology is what Bickler terms a ``slow data'' field: annotated examples accrue
 through fieldwork, not through scraping, and corpora are correspondingly small.
+This characterisation and its implications for archaeological machine learning
+are discussed explicitly by Bickler~\cite{Bickler21}.
 The standard response is transfer learning - initialising from a model pretrained
 on a large general dataset such as ImageNet~\cite{Deng09} and fine-tuning on the
 specific task.
@@ -134,7 +142,8 @@ redundant preprocessing across concurrent jobs.
 Murray et al.~\cite{Murray21} describe \code{tf.data} and make the same argument from
 the framework side, arguing that input pipelines deserve to be treated as
 first-class, optimisable programs rather than as glue code.
-Svogor et al.~\cite{Svogor22} profile the PyTorch \code{DataLoader} specifically
+Svogor et al.~\cite{Svogor22} profile the PyTorch~\cite{Paszke19}
+\code{DataLoader} specifically
 against high-latency, S3-like object storage and report that a modified
 \code{ConcurrentDataloader} recovers up to a $12\times$ reduction in batch-loading
 time - independent confirmation, on different storage and a different framework
@@ -181,3 +190,13 @@ samples is determined, and a staging schedule can be computed rather than guesse
 \pads{} is built on that observation.
 
 
+Segmentation architecture is not treated as solved in general.  For this specific
+workload, however, the reference study found that architectural choice moves IoU by only
+a few percentage points, plausibly within the fluctuation induced by random
+augmentation~\cite{Casini23}.
+If the remaining headroom is not in the model, it may be in the pipeline that feeds
+it.
+The I/O literature establishes that data stalls are real and that aggregation into
+shards mitigates the dominant filesystem pathology, but leaves the configuration
+static and the prefetch speculative.
+This thesis addresses that gap.
