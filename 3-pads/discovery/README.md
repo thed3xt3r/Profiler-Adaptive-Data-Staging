@@ -71,3 +71,23 @@ Stitching uses manifest bounds rather than filename order. GeoTIFFs are tiled,
 compressed, BigTIFF-safe and sparse, so excluded grid gaps do not allocate dense
 arrays in RAM or materialise unnecessary raster blocks. Overlapping geographic
 tiles are rejected; the QGIS renderer's default 1 km grid is non-overlapping.
+
+## Recover an interrupted QGIS render manifest
+
+For a consecutive prefix such as `tile_000001.jpg` through
+`tile_055008.jpg`, replay the renderer's exact eligibility and row-major order:
+
+```bash
+python 3-pads/discovery/reconstruct_render_manifest.py \
+  --project-area /workspace/qgis/project_area.gpkg \
+  --known-site-exclusion /workspace/qgis/known_site_exclusion.gpkg \
+  --images-dir /workspace/discovery_tiles/images \
+  --output /workspace/discovery_tiles/tiles.json \
+  --take-first 55008
+```
+
+`--take-first` is mandatory. The command refuses missing/extra images, CRS
+mismatches, and overwrites. Its JSON audit records both source hashes, the
+snapped grid origin, traversal dimensions, prefix length, and total eligible
+count. Do not sort `eligible_hpc_tiles.gpkg` for this purpose: QGIS Processing
+created it with a different origin, ordering, and site-intersection rule.

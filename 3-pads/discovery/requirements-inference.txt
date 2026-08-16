@@ -5,3 +5,5 @@ lightning
 segmentation-models-pytorch
 transformers
 rasterio
+fiona
+shapely
