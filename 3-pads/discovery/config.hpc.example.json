@@ -1,0 +1,19 @@
+{
+  "project_root": "/workspace",
+  "manifest": "/workspace/discovery_tiles/tiles.json",
+  "tiles_root": "/workspace/discovery_tiles",
+  "output_dir": "/workspace/discovery_results",
+  "checkpoints": {
+    "deeplab": "/workspace/runs/checkpoints_deeplab/deeplab-resnet50-trial0-epochNN-iouX.ckpt",
+    "manet": "/workspace/runs/checkpoints_manet/manet-effb3-trial0-epochNN-iouX.ckpt",
+    "segformer": "/workspace/runs/checkpoints_segformer/segformer-b0-trial0-epochNN-iouX.ckpt"
+  },
+  "inference": {
+    "device": "cuda",
+    "batch_size": 4,
+    "window_pixels": 512,
+    "stride_pixels": 512,
+    "model_input_pixels": 256
+  },
+  "threshold": 0.5
+}

@@ -1,0 +1,7 @@
+numpy
+Pillow
+torch
+lightning
+segmentation-models-pytorch
+transformers
+rasterio
