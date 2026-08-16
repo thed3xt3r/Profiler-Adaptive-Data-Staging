@@ -22,7 +22,7 @@ checkpoints_*/
 *.ckpt
 *.pt
 *.pth
-/2602.05087v1.pdf
+images/
 
 # Local run outputs: PADS defaults PROJECT_ROOT to <repo>/runs so logs and
 # checkpoints stay out of the baseline deeplab/ and segformer/ source dirs.
