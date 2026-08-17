@@ -1,0 +1,28 @@
+{
+  "_comment_checkpoints": "Full-protocol reproduction checkpoints (0-reproduction), NOT the PADS training runs. These reach 72.8-73.5% IoU under the reference macro-imagewise metric; the PADS checkpoints under runs/ are ~0.35 pooled IoU and carry the two accuracy defects documented in Appendix B. Verified to load into 3-pads/<arch>/model.py::ArcheoModel with strict=True.",
+
+  "project_root": "/workspace",
+
+  "_comment_input": "reconstruct_render_manifest.py writes filename as a bare 'tile_NNNNNN.jpg' (no directory part), and infer_tiles.run() resolves images as tiles_root/filename, so tiles_root must be the image directory itself, not the project root.",
+  "manifest": "/workspace/discovery_tiles/tiles.json",
+  "tiles_root": "/workspace/images",
+
+  "_comment_output": "On SCRATCH, not HOME. HOME is 358.1G of a 500G soft / 550G hard quota, leaving ~142G, and this run writes 346G of float16 .npy that must all coexist for the stitch. SCRATCH allows 10T and holds 143.9M. /scratch_out is bound to /mnt/scratch/users/nahsan/discovery by ops/run_discovery.slurm. SCRATCH is not backed up and is subject to purge, so copy the qgis_layers GeoTIFFs back to HOME once the run finishes.",
+  "output_dir": "/scratch_out",
+
+  "checkpoints": {
+    "deeplab": "/workspace/0-reproduction/runs/deeplab_full/lightning_logs/version_0/checkpoints/epoch=19-step=2940.ckpt",
+    "manet": "/workspace/0-reproduction/runs/manet_full/lightning_logs/version_0/checkpoints/epoch=19-step=2940.ckpt",
+    "segformer": "/workspace/0-reproduction/runs/segformer_full/lightning_logs/version_0/checkpoints/epoch=19-step=2940.ckpt"
+  },
+
+  "inference": {
+    "device": "cuda",
+    "batch_size": 4,
+    "window_pixels": 512,
+    "stride_pixels": 512,
+    "model_input_pixels": 256
+  },
+
+  "threshold": 0.5
+}

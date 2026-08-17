@@ -69,7 +69,13 @@ def run(name,manifest,tiles_root,checkpoint,output,project_root,device="cuda",wi
     for i,(tile,path) in enumerate(zip(tiles,images),1):
         a=_predict(model,name,path,device,window,stride,input_pixels,batch_size)
         if a.shape!=(tile.output_pixels,tile.output_pixels): raise ValueError("image/manifest pixel mismatch for "+tile.tile_id)
-        np.save(output/(tile.tile_id+".npy"),a.astype("float32"),allow_pickle=False)
+        # float16 halves the intermediate footprint (231 GB -> 116 GB per model;
+        # 692 GB -> 346 GB for all three), which matters because stitch() needs
+        # every tile from all three models present at once to build the agreement
+        # overlay. _probability() casts back to float32 on load, so the stitch is
+        # unaffected, and half precision resolves ~3 decimal digits over [0,1] --
+        # far finer than a 0.5 threshold requires.
+        np.save(output/(tile.tile_id+".npy"),a.astype("float16"),allow_pickle=False)
         if i==1 or i%100==0 or i==len(tiles): print("{} {}/{}".format(name,i,len(tiles)),flush=True)
     hasher=hashlib.sha256()
     with Path(checkpoint).open("rb") as stream:
@@ -77,5 +83,6 @@ def run(name,manifest,tiles_root,checkpoint,output,project_root,device="cuda",wi
     digest=hasher.hexdigest()
     (output/"inference_metadata.json").write_text(json.dumps({"model":name,"checkpoint":str(Path(checkpoint).resolve()),
         "checkpoint_sha256":digest,"tile_count":len(tiles),"window":window,"stride":stride,
-        "model_input_pixels":input_pixels,"manifest_metadata":meta},indent=2),encoding="utf-8")
+        "model_input_pixels":input_pixels,"probability_dtype":"float16",
+        "manifest_metadata":meta},indent=2),encoding="utf-8")
     return output

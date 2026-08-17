@@ -54,3 +54,8 @@ best_trial_profile/
 # Slurm
 *.out
 *.err
+
+# geo stack installed for the discovery pipeline (rebuildable via ops/probe_geo.slurm)
+.geolibs/
+# reconstructed render manifest (19 MB, rebuildable via ops/build_manifest.slurm)
+discovery_tiles/
