@@ -19,4 +19,4 @@ apptainer exec --nv \
     --bind "${PROJECT_ROOT}:/workspace" \
     --env PYTHONPATH="/workspace/.pylibs" \
     "${SIF}" \
-    python -u /workspace/thesis/scripts/make_prediction_figures.py
+    python -u /workspace/4-inference/make_prediction_figures.py

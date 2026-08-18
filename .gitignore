@@ -22,7 +22,13 @@ checkpoints_*/
 *.ckpt
 *.pt
 *.pth
-images/
+# Discovery tiles (55,008 jpg). README screenshots in the same directory
+# are re-included below; git cannot un-ignore inside an excluded directory,
+# so this must be images/* rather than images/.
+images/*
+!images/agreement-irrigated-farmland.png
+!images/agreement-field-systems.png
+!images/agreement-arid-margin.png
 
 # Local run outputs: PADS defaults PROJECT_ROOT to <repo>/runs so logs and
 # checkpoints stay out of the baseline deeplab/ and segformer/ source dirs.

@@ -14,7 +14,7 @@ script, so submitting from anywhere else will fail to write logs.
 | path | contents |
 |---|---|
 | `discovery/` | the landscape-scale inference campaign (Section 7 of the thesis) |
-| `thesis/` | jobs that regenerate figures and tables in the manuscript |
+| `thesis/` | figure and table generation jobs, driving `4-inference/` |
 | `fix_*.slurm` | one-time environment repairs for `.pylibs` |
 
 The `fix_*.slurm` scripts stay at the top level because the training scripts

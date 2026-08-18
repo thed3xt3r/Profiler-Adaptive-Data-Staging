@@ -19,4 +19,4 @@ apptainer exec --nv \
     --bind "${PROJECT_ROOT}:/workspace" \
     --env PYTHONPATH="/workspace/.pylibs" \
     "${SIF}" \
-    python -u /workspace/thesis/scripts/score_test_tiles.py
+    python -u /workspace/4-inference/score_test_tiles.py
