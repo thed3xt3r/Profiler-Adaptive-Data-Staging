@@ -165,11 +165,11 @@ correspond to no class.
 
 The composite drawn over the imagery, with the excluded known sites in orange:
 
-![Agreement layer over irrigated farmland](images/agreement-irrigated-farmland.png)
+![Agreement layer over irrigated farmland](img/discovery-overview.png)
 
-![Agreement layer over field systems and a watercourse](images/agreement-field-systems.png)
+![Agreement layer over field systems and a watercourse](img/discovery-cluster-1.png)
 
-![Agreement layer over an arid margin](images/agreement-arid-margin.png)
+![Agreement layer over an arid margin](img/discovery-cluster-2.png)
 
 ## Storage
 
